@@ -2,10 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter/widget_previews.dart';
 import 'package:koini/core/theme/koini_theme.dart';
 import 'package:koini/core/widgets/koini_ui.dart';
-import 'package:koini/features/missions/mission_content.dart';
+import 'package:koini/features/parents/viewmodels/parent_overview_viewmodel.dart';
 import 'package:koini/features/parents/views/parent_dashboard_view.dart';
 import 'package:koini/features/parents/widgets/dream_report.dart';
-import 'package:koini/features/rewards/controllers/badge_progress.dart';
 import 'package:koini/features/rewards/widgets/badge_icon.dart';
 import 'package:koini/features/transactions/widgets/transaction_summary.dart';
 import 'package:koini/models/koini_data.dart';
@@ -13,7 +12,7 @@ import 'package:koini/previews/preview_data.dart';
 import 'package:koini/previews/preview_host.dart';
 import 'package:koini/services/koini_store.dart';
 
-class ParentReportView extends StatelessWidget {
+class ParentReportView extends StatefulWidget {
   const ParentReportView({
     super.key,
     required this.store,
@@ -23,22 +22,32 @@ class ParentReportView extends StatelessWidget {
   final bool monthly;
 
   @override
-  Widget build(BuildContext context) {
-    final period = monthly ? store.thisMonth : store.thisWeek;
+  State<ParentReportView> createState() => _ParentReportViewState();
+}
+
+class _ParentReportViewState extends State<ParentReportView> {
+  KoiniStore get store => widget.store;
+  late final model = ParentOverviewViewModel(store, monthly: widget.monthly);
+
+  @override
+  void dispose() {
+    model.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) =>
+      ListenableBuilder(listenable: model, builder: buildPage);
+
+  Widget buildPage(BuildContext context, Widget? child) {
+    final monthly = widget.monthly;
+    final period = model.entries;
     final periodLabel = monthly ? 'Bulan ini' : 'Minggu ini';
-    final dream = store.activeDream;
-    final first = monthly
-        ? DateTime(store.now.year, store.now.month)
-        : weekStart(store.now);
-    final firstMonday = (DateTime.monday - first.weekday) % 7 + 1;
-    final plannedReceipts = monthly
-        ? (store.now.day < firstMonday
-              ? 0
-              : 1 + (store.now.day - firstMonday) ~/ 7)
-        : 1;
+    final dream = model.dream;
+    final completed = model.completedMissions.toList();
     return KPage(
       title: monthly ? 'Rapor bulanan' : 'Perkembangan',
-      subtitle: '${store.name} · ${dateLabel(first)}',
+      subtitle: '${model.child} · ${dateLabel(model.periodStart)}',
       footer: KButton(
         'Kembali ke ringkasan',
         onTap: () => Navigator.pop(context),
@@ -67,32 +76,31 @@ class ParentReportView extends StatelessWidget {
                 ],
               ),
               const Gap(6),
-              for (final (jar, amount) in [
-                (Jar.tabung, store.netSavings(period)),
-                (Jar.jajan, store.amountFor(EntryKind.spend, period)),
-                (Jar.berbagi, store.amountFor(EntryKind.give, period)),
-              ])
+              for (final row in model.jarReport.entries)
                 Padding(
                   padding: const EdgeInsets.symmetric(vertical: 3),
                   child: Row(
                     children: [
                       Expanded(
                         child: heading(
-                          jar.label,
+                          row.key.label,
                           size: 16,
-                          color: KColors.jar(jar),
+                          color: KColors.jar(row.key),
                         ),
                       ),
                       SizedBox(
                         width: 86,
                         child: caption(
-                          rupiah(store.split[jar]! * plannedReceipts),
+                          rupiah(row.value.planned),
                           align: TextAlign.end,
                         ),
                       ),
                       SizedBox(
                         width: 86,
-                        child: caption(rupiah(amount), align: TextAlign.end),
+                        child: caption(
+                          rupiah(row.value.actual),
+                          align: TextAlign.end,
+                        ),
                       ),
                     ],
                   ),
@@ -104,7 +112,11 @@ class ParentReportView extends StatelessWidget {
         ),
         const Gap(9),
         if (dream != null) ...[
-          DreamReport(store: store, dream: dream),
+          DreamReport(
+            dream: dream,
+            saved: model.savedFor(dream),
+            progress: model.progress(dream),
+          ),
           const Gap(9),
         ],
         Row(
@@ -112,16 +124,13 @@ class ParentReportView extends StatelessWidget {
             Expanded(
               child: Stat(
                 'Tabungan $periodLabel',
-                rupiah(store.netSavings(period)),
+                rupiah(model.savings),
                 color: KColors.mint,
               ),
             ),
             const SizedBox(width: 8),
             Expanded(
-              child: Stat(
-                'Misi selesai (total)',
-                '${store.scores.length}/${missions.length}',
-              ),
+              child: Stat('Misi selesai (total)', model.missionFraction),
             ),
           ],
         ),
@@ -129,21 +138,19 @@ class ParentReportView extends StatelessWidget {
         heading(monthly ? 'Pencapaian' : 'Hasil misi', size: 19),
         const Gap(6),
         if (monthly)
-          for (final badge in badges(store).where((badge) => badge.earned)) ...[
+          for (final badge in model.earnedBadges) ...[
             KRow(badge.name, badge.description, icon: const BadgeIcon(true)),
             const Gap(6),
           ],
-        if (store.scores.isEmpty)
+        if (completed.isEmpty)
           const KRow(
             'Belum ada misi selesai',
             'Hasil misi anak akan muncul di sini.',
           ),
-        for (final mission in missions.where(
-          (mission) => store.scores.containsKey(mission.id),
-        )) ...[
+        for (final mission in completed) ...[
           KRow(
             mission.name,
-            '${store.scores[mission.id]}/5 benar · ${store.scores[mission.id]! * 3} bintang',
+            mission.result,
             icon: const Icon(Icons.star, color: KColors.gold),
           ),
           const Gap(6),

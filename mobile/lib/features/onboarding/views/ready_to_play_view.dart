@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/widget_previews.dart';
 import 'package:koini/core/theme/koini_theme.dart';
 import 'package:koini/core/widgets/koini_ui.dart';
-import 'package:koini/features/onboarding/controllers/onboarding_controller.dart';
+import 'package:koini/features/onboarding/viewmodels/onboarding_viewmodel.dart';
 import 'package:koini/features/onboarding/views/onboarding_flow_view.dart';
 import 'package:koini/features/onboarding/views/welcome_view.dart';
 import 'package:koini/models/koini_data.dart';
@@ -11,7 +11,7 @@ import 'package:koini/previews/preview_host.dart';
 
 class ReadyToPlayView {
   const ReadyToPlayView({required this.form});
-  final OnboardingController form;
+  final OnboardingViewModel form;
 
   List<Widget> children(BuildContext context) => [
     const Gap(20),
@@ -30,7 +30,7 @@ class ReadyToPlayView {
       align: TextAlign.center,
     ),
     caption(
-      'Ayah/Bunda, serahkan HP ke ${form.name.text.trim()}.',
+      'Ayah/Bunda, serahkan HP ke ${form.name}.',
       align: TextAlign.center,
     ),
     const Gap(23),

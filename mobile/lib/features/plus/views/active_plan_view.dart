@@ -4,12 +4,13 @@ import 'package:koini/app/app_router.dart';
 import 'package:koini/core/theme/koini_theme.dart';
 import 'package:koini/core/widgets/koini_ui.dart';
 import 'package:koini/features/parents/views/parent_dashboard_view.dart';
+import 'package:koini/features/plus/viewmodels/plus_packages_viewmodel.dart';
 import 'package:koini/features/transactions/views/structured_history_view.dart';
 import 'package:koini/previews/preview_data.dart';
 import 'package:koini/previews/preview_host.dart';
 import 'package:koini/services/koini_store.dart';
 
-class ActivePlanView extends StatelessWidget {
+class ActivePlanView extends StatefulWidget {
   const ActivePlanView({
     super.key,
     required this.store,
@@ -19,10 +20,26 @@ class ActivePlanView extends StatelessWidget {
   final Map<String, VoidCallback> yearlyFeatures;
 
   @override
-  Widget build(BuildContext context) => Celebration(
+  State<ActivePlanView> createState() => _ActivePlanViewState();
+}
+
+class _ActivePlanViewState extends State<ActivePlanView> {
+  late final model = ActivePlanViewModel(widget.store);
+
+  @override
+  void dispose() {
+    model.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) =>
+      ListenableBuilder(listenable: model, builder: buildPage);
+
+  Widget buildPage(BuildContext context, Widget? child) => Celebration(
     title: 'Koini Plus aktif!',
     message:
-        'Paket ${store.plan.label} · ${store.plan.price}\nAktivasi simulasi',
+        'Paket ${model.plan.label} · ${model.plan.price}\nAktivasi simulasi',
     button: 'Kembali ke Ringkasan',
     details: [
       KRow(
@@ -30,7 +47,7 @@ class ActivePlanView extends StatelessWidget {
         'Perkiraan waktu untuk impian',
         color: KColors.gold,
         icon: const Icon(Icons.star, color: KColors.gold),
-        onTap: () => openSmartPlan(context, store, store.activeDream),
+        onTap: () => openSmartPlan(context, widget.store, model.activeDream),
       ),
       const Gap(8),
       KRow(
@@ -40,11 +57,11 @@ class ActivePlanView extends StatelessWidget {
         icon: const Icon(Icons.star, color: KColors.gold),
         onTap: () => openPage(
           context,
-          StructuredHistoryView(store: store, readOnly: true),
+          StructuredHistoryView(store: widget.store, readOnly: true),
         ),
       ),
-      if (store.hasYearly)
-        for (final entry in yearlyFeatures.entries) ...[
+      if (model.hasYearly)
+        for (final entry in widget.yearlyFeatures.entries) ...[
           const Gap(8),
           KRow(
             entry.key,

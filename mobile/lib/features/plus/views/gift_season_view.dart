@@ -4,6 +4,7 @@ import 'package:koini/app/app_router.dart';
 import 'package:koini/core/theme/koini_theme.dart';
 import 'package:koini/core/widgets/koini_ui.dart';
 import 'package:koini/features/parents/views/parent_dashboard_view.dart';
+import 'package:koini/features/plus/viewmodels/gift_viewmodel.dart';
 import 'package:koini/features/plus/views/gift_release_view.dart';
 import 'package:koini/models/koini_data.dart';
 import 'package:koini/previews/preview_data.dart';
@@ -23,30 +24,29 @@ class _GiftSeasonViewState extends State<GiftSeasonView> {
   final total = TextEditingController();
   final parts = {for (final jar in Jar.values) jar: TextEditingController()};
   final held = TextEditingController();
-  bool busy = false;
 
   @override
   void dispose() {
     for (final controller in [memo, total, held, ...parts.values]) {
       controller.dispose();
     }
+    model.dispose();
     super.dispose();
   }
 
-  int number(TextEditingController controller) =>
-      int.tryParse(controller.text) ?? 0;
+  late final model = GiftSeasonViewModel(widget.store);
 
   @override
-  Widget build(BuildContext context) {
-    final remainder =
-        number(total) -
-        number(held) -
-        parts.values.fold<int>(0, (a, b) => a + number(b));
+  Widget build(BuildContext context) =>
+      ListenableBuilder(listenable: model, builder: buildPage);
+
+  Widget buildPage(BuildContext context, Widget? child) {
+    final remainder = model.remainder;
     return KPage(
       title: 'Musim uang hadiah',
       footer: KButton(
         'Simpan rencana',
-        onTap: busy
+        onTap: model.busy
             ? null
             : () async {
                 FocusScope.of(context).unfocus();
@@ -71,20 +71,14 @@ class _GiftSeasonViewState extends State<GiftSeasonView> {
                   ),
                 );
                 if (!mounted || !context.mounted || approved != true) return;
-                setState(() => busy = true);
-                final error = await widget.store.recordGift(
-                  number(total),
-                  parts.map((jar, data) => MapEntry(jar, number(data))),
-                  number(held),
-                  memo.text.trim().isEmpty ? 'Uang hadiah' : memo.text.trim(),
-                );
+                if (model.busy) return;
+                final saved = await model.save(memo.text);
                 if (!mounted || !context.mounted) return;
-                if (error == null) {
+                if (saved) {
                   Navigator.pop(context);
                   note(context, 'Uang hadiah tercatat.');
                 } else {
-                  setState(() => busy = false);
-                  note(context, error);
+                  note(context, model.error!);
                 }
               },
       ),
@@ -99,7 +93,7 @@ class _GiftSeasonViewState extends State<GiftSeasonView> {
                 'Uang hadiah diterima',
                 total,
                 numeric: true,
-                onChanged: (_) => setState(() {}),
+                onChanged: model.changeTotal,
               ),
             ],
           ),
@@ -116,7 +110,7 @@ class _GiftSeasonViewState extends State<GiftSeasonView> {
                     jar.label,
                     parts[jar]!,
                     numeric: true,
-                    onChanged: (_) => setState(() {}),
+                    onChanged: (value) => model.changePart(jar, value),
                   ),
                 ),
               ],
@@ -130,7 +124,7 @@ class _GiftSeasonViewState extends State<GiftSeasonView> {
             'Dititip ke Ayah/Bunda',
             held,
             numeric: true,
-            onChanged: (_) => setState(() {}),
+            onChanged: model.changeHeld,
           ),
         ),
         const Gap(8),
@@ -138,11 +132,9 @@ class _GiftSeasonViewState extends State<GiftSeasonView> {
           'Sisa belum dibagi ${rupiah(remainder)}',
           color: remainder == 0 ? KColors.mint : KColors.peach,
         ),
-        if (widget.store.heldGift > 0) ...[
+        if (model.heldGift > 0) ...[
           const Gap(6),
-          caption(
-            'Titipan yang sudah tercatat ${rupiah(widget.store.heldGift)}.',
-          ),
+          caption('Titipan yang sudah tercatat ${rupiah(model.heldGift)}.'),
           const Gap(7),
           KRow(
             'Kembalikan uang titipan',

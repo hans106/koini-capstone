@@ -3,7 +3,7 @@ import 'package:flutter/widget_previews.dart';
 import 'package:koini/app/app_router.dart';
 import 'package:koini/core/theme/koini_theme.dart';
 import 'package:koini/core/widgets/koini_ui.dart';
-import 'package:koini/features/missions/mission_content.dart';
+import 'package:koini/features/parents/viewmodels/parent_overview_viewmodel.dart';
 import 'package:koini/features/parents/views/parent_dashboard_view.dart';
 import 'package:koini/features/parents/views/parent_report_view.dart';
 import 'package:koini/features/parents/widgets/dream_report.dart';
@@ -22,28 +22,31 @@ class EmailPreviewView extends StatefulWidget {
 }
 
 class _EmailPreviewViewState extends State<EmailPreviewView> {
-  bool busy = false;
+  late final model = ParentOverviewViewModel(widget.store, alert: widget.alert);
+
+  @override
+  void dispose() {
+    model.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) => ListenableBuilder(
-    listenable: widget.store,
+    listenable: model,
     builder: (context, _) {
       final store = widget.store;
-      final dream = store.activeDream;
-      final weeklySavings = store.netSavings(store.thisWeek);
+      final dream = model.dream;
       return KPage(
-        title: widget.alert ? 'Peringatan email' : 'Kabar ${store.name}',
+        title: widget.alert ? 'Peringatan email' : 'Kabar ${model.child}',
         subtitle: 'Pratinjau email demo',
         footer: KButton(
           'Lihat ringkasan',
           onTap: () => openPage(context, ParentReportView(store: store)),
         ),
         children: [
-          caption(
-            'Dari Koini · Kepada ${store.email.isEmpty ? 'Ayah/Bunda' : store.email}',
-          ),
+          caption('Dari Koini · Kepada ${model.recipient}'),
           const Gap(4),
-          caption(dateLabel(store.now)),
+          caption(dateLabel(model.today)),
           const Gap(),
           Center(
             child: Image.asset(
@@ -56,8 +59,8 @@ class _EmailPreviewViewState extends State<EmailPreviewView> {
           heading('Halo, Ayah/Bunda', size: 19),
           Text(
             widget.alert
-                ? 'Ini contoh kabar saat catatan tabungan ${store.name} berkurang.'
-                : 'Ini cerita belajar ${store.name} minggu ini. Ada langkah kecil yang patut dirayakan.',
+                ? 'Ini contoh kabar saat catatan tabungan ${model.child} berkurang.'
+                : 'Ini cerita belajar ${model.child} minggu ini. Ada langkah kecil yang patut dirayakan.',
           ),
           const Gap(),
           KCard(
@@ -71,9 +74,7 @@ class _EmailPreviewViewState extends State<EmailPreviewView> {
                       : 'Catatan tabungan minggu ini',
                 ),
                 heading(
-                  rupiah(
-                    widget.alert ? store.balance(Jar.tabung) : weeklySavings,
-                  ),
+                  rupiah(model.emailAmount),
                   color: KColors.mint,
                   size: 29,
                 ),
@@ -82,12 +83,16 @@ class _EmailPreviewViewState extends State<EmailPreviewView> {
           ),
           const Gap(8),
           if (dream != null) ...[
-            DreamReport(store: store, dream: dream),
+            DreamReport(
+              dream: dream,
+              saved: model.savedFor(dream),
+              progress: model.progress(dream),
+            ),
             const Gap(8),
           ],
           Stat(
             'Misi selesai (total)',
-            '${store.scores.length}/${missions.length}',
+            model.missionFraction,
             color: Colors.white,
           ),
           const Gap(),
@@ -103,15 +108,14 @@ class _EmailPreviewViewState extends State<EmailPreviewView> {
             KCard(
               padding: EdgeInsets.zero,
               child: SwitchListTile(
-                value: store.alerts,
-                onChanged: busy
+                value: model.alerts,
+                onChanged: model.busy
                     ? null
                     : (value) async {
-                        setState(() => busy = true);
-                        final error = await store.settings(alerts: value);
-                        if (!mounted || !context.mounted) return;
-                        setState(() => busy = false);
-                        if (error != null) note(context, error);
+                        if (model.busy) return;
+                        final saved = await model.setAlerts(value);
+                        if (!mounted || !context.mounted || saved) return;
+                        note(context, model.error!);
                       },
                 title: const Text('Peringatan tabungan'),
                 subtitle: caption('Preferensi lokal'),

@@ -4,15 +4,15 @@ import 'package:koini/app/app_router.dart';
 import 'package:koini/app/child_shell.dart';
 import 'package:koini/core/theme/koini_theme.dart';
 import 'package:koini/core/widgets/koini_ui.dart';
+import 'package:koini/features/dreams/viewmodels/dreams_viewmodel.dart';
 import 'package:koini/features/dreams/widgets/dream_image.dart';
 import 'package:koini/features/transactions/views/add_transaction_view.dart';
 import 'package:koini/models/koini_data.dart';
 import 'package:koini/previews/preview_data.dart';
 import 'package:koini/previews/preview_host.dart';
 import 'package:koini/services/koini_store.dart';
-import 'package:koini/services/smart_plan.dart';
 
-class DreamDetailView extends StatelessWidget {
+class DreamDetailView extends StatefulWidget {
   const DreamDetailView({
     super.key,
     required this.store,
@@ -24,12 +24,26 @@ class DreamDetailView extends StatelessWidget {
   final VoidCallback? parentAccess;
 
   @override
+  State<DreamDetailView> createState() => _DreamDetailViewState();
+}
+
+class _DreamDetailViewState extends State<DreamDetailView> {
+  KoiniStore get store => widget.store;
+  late final model = DreamsViewModel(store);
+
+  @override
+  void dispose() {
+    model.dispose();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) => ListenableBuilder(
-    listenable: store,
+    listenable: model,
     builder: (context, _) {
-      final dream = store.dreams.firstWhere((item) => item.id == id);
-      final progress = store.progress(dream);
-      final remaining = store.remaining(dream);
+      final dream = model.find(widget.id);
+      final progress = model.progress(dream);
+      final remaining = model.remaining(dream);
       final next = [
         25,
         50,
@@ -70,7 +84,7 @@ class DreamDetailView extends StatelessWidget {
           const Gap(8),
           caption('Sudah ditabung', align: TextAlign.center),
           heading(
-            rupiah(store.savedFor(dream)),
+            rupiah(model.savedFor(dream)),
             size: 37,
             color: KColors.gold,
             align: TextAlign.center,
@@ -137,7 +151,7 @@ class DreamDetailView extends StatelessWidget {
                 context,
                 store,
                 dream,
-                parentAccess: parentAccess,
+                parentAccess: widget.parentAccess,
               ),
             ),
           ),
@@ -152,7 +166,7 @@ class DreamDetailView extends StatelessWidget {
                 context,
                 store,
                 dream,
-                parentAccess: parentAccess,
+                parentAccess: widget.parentAccess,
               ),
             ),
           const Gap(9),
@@ -161,11 +175,7 @@ class DreamDetailView extends StatelessWidget {
               'Simulasi',
               secondary: true,
               onTap: () {
-                final plan = SmartPlan(
-                  target: dream.target,
-                  saved: store.savedFor(dream),
-                  weekly: dream.weekly,
-                );
+                final plan = model.simulation(dream);
                 kSheet(
                   context,
                   'Simulasi impian',

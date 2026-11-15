@@ -28,35 +28,57 @@ flutter run
 
 Login Google, pemulihan PIN lewat email, sinkronisasi backend, pengiriman email, dan pengingat sistem masih perlu integrasi. Preferensi notifikasi dan pratinjau email dapat dicoba secara lokal. Aktivasi Plus adalah simulasi tanpa pembayaran. `lib/services/smart_plan.dart` menghitung perkiraan dalam Dart. Cerita Koini menggunakan teks demo bawaan.
 
-## Struktur MVC
+## Struktur MVVM
 
 ```text
 lib/
-  app/                 Akar aplikasi, shell tab anak, dan navigasi
+  app/                 Akar aplikasi, ViewModel awal, shell tab anak, dan navigasi
   core/theme/          Warna, tipografi, dan tema bersama
   core/widgets/        Tombol, halaman, form, progres, dialog, dan ilustrasi
   core/utils/          Bantuan input keypad
+  core/viewmodels/     ChangeNotifier bersama untuk operasi asinkron dan perubahan store
   features/<fitur>/
-    views/             Satu file per halaman atau langkah onboarding
-    controllers/       State dan interaksi yang dipakai oleh View
+    views/             Halaman atau langkah onboarding
+    viewmodels/        State layar, aksi pengguna, dan data siap tampil
     widgets/           Komponen khusus fitur
   models/              Model data dan format penyimpanan
   services/            Saldo, penyimpanan lokal, dan kalkulasi bersama
   previews/            Host navigasi dan data simulasi dalam memori
 ```
 
-| Controller | Tanggung jawab |
-|---|---|
-| [OnboardingController](lib/features/onboarding/controllers/onboarding_controller.dart) | Langkah setup, persetujuan, PIN awal, validasi, dan penyimpanan profil |
-| [TransactionController](lib/features/transactions/controllers/transaction_controller.dart) | Keypad nominal, kategori, pilihan toples, dan pengiriman transaksi |
-| [DreamCreationController](lib/features/dreams/controllers/dream_creation_controller.dart) | Input impian, perkiraan mingguan, dan simpan |
-| [MissionQuizController](lib/features/missions/controllers/mission_quiz_controller.dart) | Jawaban, percobaan ulang, progres pertanyaan, dan hadiah |
-| [ParentSettingsController](lib/features/parents/controllers/parent_settings_controller.dart) | Draft preferensi orang tua dan status penyimpanan |
-| [AllowanceSettingsController](lib/features/parents/controllers/allowance_settings_controller.dart) | Nominal uang saku, pembagian toples, dan simpan rencana |
-| [SmartPlanController](lib/features/plus/controllers/smart_plan_controller.dart) | Masukan dan perkiraan Rencana Pintar |
-| [badge_progress.dart](lib/features/rewards/controllers/badge_progress.dart) | Progres lencana dari transaksi, impian, dan misi |
+Sembilan fitur yang ada memakai struktur ini, yaitu `dreams`, `home`, `jars`, `missions`, `onboarding`, `parents`, `plus`, `rewards`, dan `transactions`.
 
-State kecil seperti filter tetap di View. [KoiniStore](lib/services/koini_store.dart) menjadi sumber saldo, riwayat, dan progres. [DeviceStorage](lib/services/device_storage.dart) memakai kunci penyimpanan Android yang sama. Preview memakai implementasi memori dari kontrak [KoiniStorage](lib/services/koini_storage.dart).
+| Bagian | Tanggung jawab |
+|---|---|
+| Model | Entitas seperti toples, transaksi, dan impian beserta representasi JSON di `models/`. |
+| View | Merender UI, mengirim aksi, menampilkan umpan balik, dan membuka halaman. Fokus, animasi, dan `TextEditingController` dimiliki View. |
+| ViewModel | Menyimpan draft, memvalidasi masukan layar, menyiapkan data untuk View, dan mengoordinasikan service. `ViewModel` menyediakan status operasi dan `StoreViewModel` juga meneruskan perubahan store. |
+| Service | Menjalankan aturan saldo, kalkulasi, PIN, dan penyimpanan. `KoiniStore` adalah sumber data bersama. `DeviceStorage` melaksanakan kontrak `KoiniStorage` dengan format data dan kunci Android yang sama. |
+
+View mengirim aksi ke ViewModel. ViewModel memanggil service jika perlu, kemudian memberi tahu listener ketika draft, hasil, atau status berubah. `ListenableBuilder` merender state terbaru. Pada contoh Beranda, View menonaktifkan tombol saat pencatatan uang saku berjalan, menampilkan saldo terbaru, dan menampilkan pesan ketika aksi gagal. Cuplikan ini memakai instance `HomeViewModel` yang dibuat dan di-`dispose()` oleh `State` View.
+
+```dart
+ListenableBuilder(
+  listenable: model,
+  builder: (context, _) => Column(
+    children: [
+      Text(rupiah(model.total)),
+      KButton(
+        'Terima uang saku',
+        onTap: model.busy || model.receivedThisWeek
+            ? null
+            : () async {
+                final saved = await model.receiveAllowance();
+                if (!context.mounted) return;
+                if (!saved && model.error != null) note(context, model.error!);
+              },
+      ),
+    ],
+  ),
+)
+```
+
+Lihat [HomeView](lib/features/home/views/home_view.dart) dan [HomeViewModel](lib/features/home/viewmodels/home_viewmodel.dart) untuk implementasi lengkap. Router dan preview menerima `KoiniStore` sebagai dependensi. Setiap `KoiniPreviewHost` memberi layar store milik kartu itu dengan penyimpanan dalam memori.
 
 ## Lokasi View dan nama preview
 
@@ -87,11 +109,11 @@ flutter widget-preview start
 
 Jika browser tidak terbuka otomatis, jalankan `flutter widget-preview start --web-server` dan buka alamat localhost yang ditampilkan. Setup pertama mungkin mengunduh dependensi Flutter Previewer. Data, font, dan ilustrasi Koini dilayani dari proyek lokal. Cache `.widget_preview/` sudah diabaikan oleh Git.
 
-## Menambah halaman dan preview
+## Menambah fitur, ViewModel, dan preview
 
-1. Buat file View di `features/<fitur>/views/`. Hubungkan ke layar asal melalui `openPage` atau ke tab terkait di `app/child_shell.dart`.
-2. Jika form memiliki beberapa langkah atau validasi, buat controller di `controllers/`. Terima `KoiniStore` di konstruktor, letakkan validasi form dan perubahan state di controller, lalu panggil service untuk operasi data.
-3. Miliki controller di `State` View, bangun ulang lewat `ListenableBuilder`, dan panggil `dispose()` ketika View ditutup.
+1. Tambahkan layar ke `features/<fitur>/views/`. Buat direktori fitur baru jika layar memiliki tanggung jawab yang berbeda dari fitur yang ada. Hubungkan melalui `openPage` atau ke tab yang sesuai di `app/child_shell.dart`.
+2. Jika layar memiliki state atau aksi yang perlu dikelola, tambahkan file `*_viewmodel.dart` di `viewmodels/`. Terima layanan melalui konstruktor, tampilkan state melalui getter, dan definisikan metode untuk aksi pengguna. Letakkan aturan transaksi dan penulisan data di service.
+3. Buat ViewModel di `State` View dan panggil `dispose()` saat layar ditutup. Gunakan `ListenableBuilder` untuk merender perubahan. Layar statis dan widget yang hanya menampilkan data dapat menerima nilai serta callback melalui konstruktor.
 4. Tambahkan fungsi publik di file View yang mengembalikan `KoiniPreviewHost`. Pakai `@Preview(name: ..., group: ..., size: koiniPreviewSize)`. Berikan View asli ke `page` dan, bila perlu, halaman asal ke `returnPage` untuk menguji navigasi kembali.
 5. Ubah skenario terpusat di [preview_data.dart](lib/previews/preview_data.dart). Setiap kartu mendapatkan store baru. Tambahkan fungsi preview ke [widget_preview_test.dart](test/widget_preview_test.dart) untuk pengujian render.
 

@@ -4,7 +4,7 @@ import 'package:koini/app/app_router.dart';
 import 'package:koini/app/child_shell.dart';
 import 'package:koini/core/theme/koini_theme.dart';
 import 'package:koini/core/widgets/koini_ui.dart';
-import 'package:koini/features/missions/mission_content.dart';
+import 'package:koini/features/parents/viewmodels/parent_overview_viewmodel.dart';
 import 'package:koini/features/parents/views/parent_report_view.dart';
 import 'package:koini/features/parents/views/parent_settings_view.dart';
 import 'package:koini/features/parents/widgets/dream_report.dart';
@@ -13,31 +13,35 @@ import 'package:koini/previews/preview_data.dart';
 import 'package:koini/previews/preview_host.dart';
 import 'package:koini/services/koini_store.dart';
 
-class ParentDashboardView extends StatelessWidget {
+class ParentDashboardView extends StatefulWidget {
   const ParentDashboardView({super.key, required this.store});
   final KoiniStore store;
 
   @override
+  State<ParentDashboardView> createState() => _ParentDashboardViewState();
+}
+
+class _ParentDashboardViewState extends State<ParentDashboardView> {
+  KoiniStore get store => widget.store;
+  late final model = ParentOverviewViewModel(store);
+
+  @override
+  void dispose() {
+    model.dispose();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) => ListenableBuilder(
-    listenable: store,
+    listenable: model,
     builder: (context, _) {
-      final dream = store.activeDream;
-      final week = store.thisWeek;
-      final saved = store.netSavings(week);
-      final spent = store.amountFor(EntryKind.spend, week);
-      final previousWeek = weekStart(store.now)
-          .subtract(const Duration(days: 7));
-      final previousSaved = store.netSavings(
-        store.entries.where(
-          (entry) =>
-              !entry.date.isBefore(previousWeek) &&
-              entry.date.isBefore(weekStart(store.now)),
-        ),
-      );
-      final change = saved - previousSaved;
+      final dream = model.dream;
+      final saved = model.savings;
+      final spent = model.spent;
+      final change = model.weeklyChange;
       return KPage(
         title: 'Ringkasan orang tua',
-        subtitle: '${store.name} · ${dateLabel(weekStart(store.now))}',
+        subtitle: '${model.child} · ${dateLabel(model.periodStart)}',
         footer: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
@@ -90,7 +94,11 @@ class ParentDashboardView extends StatelessWidget {
           ),
           const Gap(9),
           if (dream != null) ...[
-            DreamReport(store: store, dream: dream),
+            DreamReport(
+              dream: dream,
+              saved: model.savedFor(dream),
+              progress: model.progress(dream),
+            ),
             const Gap(9),
           ] else ...[
             const KCallout(
@@ -104,7 +112,7 @@ class ParentDashboardView extends StatelessWidget {
               Expanded(
                 child: Stat(
                   'Misi selesai',
-                  '${store.scores.length}/${missions.length}',
+                  model.missionFraction,
                   color: Colors.white,
                 ),
               ),
@@ -121,7 +129,7 @@ class ParentDashboardView extends StatelessWidget {
           const Gap(9),
           KRow(
             'Koini Plus',
-            'Pilih paket pendampingan · ${store.plan.label}',
+            'Pilih paket pendampingan · ${model.plan.label}',
             color: KColors.gold,
             onTap: () => showPlus(context, store),
           ),

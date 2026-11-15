@@ -4,6 +4,7 @@ import 'package:koini/app/app_router.dart';
 import 'package:koini/app/child_shell.dart';
 import 'package:koini/core/theme/koini_theme.dart';
 import 'package:koini/core/widgets/koini_ui.dart';
+import 'package:koini/features/missions/viewmodels/koini_story_viewmodel.dart';
 import 'package:koini/previews/preview_data.dart';
 import 'package:koini/previews/preview_host.dart';
 import 'package:koini/services/koini_store.dart';
@@ -22,31 +23,20 @@ class KoiniStoryView extends StatefulWidget {
 }
 
 class _KoiniStoryViewState extends State<KoiniStoryView> {
-  int current = 0;
-  bool revealed = false;
+  late final model = KoiniStoryViewModel(widget.store);
+
+  @override
+  void dispose() {
+    model.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) => ListenableBuilder(
-    listenable: widget.store,
+    listenable: model,
     builder: (context, _) {
-      final permitted = widget.store.stories && widget.store.hasPlus;
-      const topics = [
-        (
-          'Butuh atau mau?',
-          'Belajar memilih sebelum membeli.',
-          'Bayu haus setelah bermain. Ia ingin es krim, tapi memilih air putih dulu. Apa yang kamu pilih saat uangmu cukup untuk satu barang?',
-        ),
-        (
-          'Menabung sedikit-sedikit',
-          'Kenali kebiasaan kecil yang baik.',
-          'Mira menaruh Rp5.000 di toples setiap minggu. Empat minggu kemudian, tabungannya jadi Rp20.000! Apa yang ingin kamu tabung?',
-        ),
-        (
-          'Rencanakan impianmu',
-          'Tentukan langkah yang realistis.',
-          'Dito ingin membeli buku Rp50.000. Ia sudah punya Rp20.000. Berapa yang perlu ia tabung berikutnya?',
-        ),
-      ];
+      final permitted = model.permitted;
+      const topics = KoiniStoryViewModel.topics;
       return KPage(
         title: 'Cerita dengan Koini',
         subtitle: 'Pilih topik, belajar bersama',
@@ -54,8 +44,8 @@ class _KoiniStoryViewState extends State<KoiniStoryView> {
           permitted ? 'Baca cerita' : 'Ajak Ayah/Bunda',
           onTap: () {
             if (permitted) {
-              setState(() => revealed = true);
-            } else if (!widget.store.hasPlus) {
+              model.reveal();
+            } else if (!model.hasPlus) {
               plusGate(
                 context,
                 yearly: false,
@@ -67,14 +57,7 @@ class _KoiniStoryViewState extends State<KoiniStoryView> {
           },
         ),
         children: [
-          KCallout(
-            'Koini',
-            !permitted
-                ? 'Ayah/Bunda bisa mengaktifkan Cerita Koini di Setelan.'
-                : revealed
-                ? topics[current].$3
-                : 'Pilih salah satu topik di bawah untuk mulai.',
-          ),
+          KCallout('Koini', model.message),
           const Gap(),
           heading('Topik cerita', size: 19),
           const Gap(7),
@@ -82,11 +65,8 @@ class _KoiniStoryViewState extends State<KoiniStoryView> {
             KRow(
               topics[i].$1,
               topics[i].$2,
-              color: current == i ? KColors.gold : null,
-              onTap: () => setState(() {
-                current = i;
-                revealed = false;
-              }),
+              color: model.current == i ? KColors.gold : null,
+              onTap: () => model.select(i),
             ),
             const Gap(7),
           ],

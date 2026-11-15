@@ -4,7 +4,7 @@ import 'package:koini/app/app_router.dart';
 import 'package:koini/app/child_shell.dart';
 import 'package:koini/core/theme/koini_theme.dart';
 import 'package:koini/core/widgets/koini_ui.dart';
-import 'package:koini/features/plus/controllers/smart_plan_controller.dart';
+import 'package:koini/features/plus/viewmodels/smart_plan_viewmodel.dart';
 import 'package:koini/features/plus/views/smart_plan_result_view.dart';
 import 'package:koini/models/koini_data.dart';
 import 'package:koini/previews/preview_data.dart';
@@ -21,23 +21,30 @@ class SmartPlanView extends StatefulWidget {
 }
 
 class _SmartPlanViewState extends State<SmartPlanView> {
-  late final form = SmartPlanController(widget.store, widget.dream);
+  late final form = SmartPlanViewModel(widget.store, widget.dream);
+
+  late final targetField = TextEditingController(text: form.targetText);
+  late final savedField = TextEditingController(text: form.savedText);
+  late final weeklyField = TextEditingController(text: form.weekly.toString());
 
   @override
   void dispose() {
+    targetField.dispose();
+    savedField.dispose();
+    weeklyField.dispose();
     form.dispose();
     super.dispose();
   }
 
   Future<void> calculate() async {
     FocusScope.of(context).unfocus();
-    final plan = form.estimate;
+    if (form.busy) return;
+    final plan = await form.calculate();
+    if (!mounted) return;
     if (plan == null) {
-      note(context, 'Isi target, tabungan saat ini, dan nominal per minggu.');
+      note(context, form.error!);
       return;
     }
-    await form.showCalculation();
-    if (!mounted) return;
     await openPage<void>(
       context,
       SmartPlanResultView(store: widget.store, dream: widget.dream, plan: plan),
@@ -48,7 +55,7 @@ class _SmartPlanViewState extends State<SmartPlanView> {
   Widget build(BuildContext context) =>
       ListenableBuilder(listenable: form, builder: buildPage);
 
-  Widget buildPage(BuildContext context, Widget? child) => form.working
+  Widget buildPage(BuildContext context, Widget? child) => form.busy
       ? KPage(
           back: false,
           children: [
@@ -80,10 +87,11 @@ class _SmartPlanViewState extends State<SmartPlanView> {
               (40000, 'Lebih cepat sampai'),
             ]) ...[
               KCard(
-                border: int.tryParse(form.weekly.text) == amount
-                    ? KColors.gold
-                    : null,
-                onTap: () => form.chooseWeekly(amount),
+                border: form.weekly == amount ? KColors.gold : null,
+                onTap: () {
+                  weeklyField.text = '$amount';
+                  form.changeWeekly(weeklyField.text);
+                },
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
@@ -101,15 +109,25 @@ class _SmartPlanViewState extends State<SmartPlanView> {
                 children: [
                   if (widget.dream != null)
                     heading(widget.dream!.name, size: 18),
-                  KField('Target tabungan', form.target, numeric: true),
+                  KField(
+                    'Target tabungan',
+                    targetField,
+                    numeric: true,
+                    onChanged: form.changeTarget,
+                  ),
                   const Gap(8),
-                  KField('Tabungan saat ini', form.saved, numeric: true),
+                  KField(
+                    'Tabungan saat ini',
+                    savedField,
+                    numeric: true,
+                    onChanged: form.changeSaved,
+                  ),
                   const Gap(8),
                   KField(
                     'Nominal per minggu',
-                    form.weekly,
+                    weeklyField,
                     numeric: true,
-                    onChanged: (_) => form.refresh(),
+                    onChanged: form.changeWeekly,
                   ),
                 ],
               ),

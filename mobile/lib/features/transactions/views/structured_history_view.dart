@@ -4,7 +4,7 @@ import 'package:koini/app/app_router.dart';
 import 'package:koini/app/child_shell.dart';
 import 'package:koini/core/theme/koini_theme.dart';
 import 'package:koini/core/widgets/koini_ui.dart';
-import 'package:koini/features/transactions/controllers/transaction_controller.dart';
+import 'package:koini/features/transactions/viewmodels/transaction_history_viewmodel.dart';
 import 'package:koini/features/transactions/views/add_transaction_view.dart';
 import 'package:koini/features/transactions/widgets/transaction_summary.dart';
 import 'package:koini/models/koini_data.dart';
@@ -26,26 +26,23 @@ class StructuredHistoryView extends StatefulWidget {
 }
 
 class _StructuredHistoryViewState extends State<StructuredHistoryView> {
-  EntryKind? filter;
+  late final model = StructuredHistoryViewModel(widget.store);
+
+  @override
+  void dispose() {
+    model.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) => ListenableBuilder(
-    listenable: widget.store,
+    listenable: model,
     builder: (context, _) {
-      final period = widget.store.thisWeek;
-      final savings = widget.store.netSavings(period);
-      final shown = period
-          .where(
-            (entry) =>
-                filter == null ||
-                (filter == EntryKind.income
-                    ? entry.income > 0
-                    : entry.kind == filter),
-          )
-          .toList();
+      final filter = model.filter;
+      final shown = model.visibleEntries;
       return KPage(
         title: 'Catatan terstruktur',
-        subtitle: 'Minggu ini · ${dateLabel(weekStart(widget.store.now))}',
+        subtitle: 'Minggu ini · ${dateLabel(model.firstDay)}',
         footer: widget.readOnly
             ? null
             : KButton(
@@ -61,7 +58,7 @@ class _StructuredHistoryViewState extends State<StructuredHistoryView> {
               Pill(
                 'Semua',
                 selected: filter == null,
-                onTap: () => setState(() => filter = null),
+                onTap: () => model.select(null),
               ),
               for (final kind in [
                 EntryKind.spend,
@@ -72,87 +69,50 @@ class _StructuredHistoryViewState extends State<StructuredHistoryView> {
                 Pill(
                   kind.label,
                   selected: filter == kind,
-                  onTap: () => setState(() => filter = kind),
+                  onTap: () => model.select(kind),
                 ),
             ],
           ),
           const Gap(),
-          Totals(period),
+          Totals(model.totals),
           const Gap(),
-          for (final (kind, jar) in [
-            (EntryKind.spend, Jar.jajan),
-            (EntryKind.save, Jar.tabung),
-            (EntryKind.give, Jar.berbagi),
-          ])
-            if (filter == null || filter == kind) ...[
-              KCard(
-                bright: true,
-                child: Column(
-                  children: [
-                    Row(
-                      children: [
-                        Expanded(child: heading(kind.label, size: 17)),
-                        heading(
-                          rupiah(
-                            kind == EntryKind.save
-                                ? savings
-                                : widget.store.amountFor(kind, period),
-                          ),
-                          color: KColors.gold,
-                          size: 20,
-                        ),
-                      ],
-                    ),
-                    Row(
-                      children: [
-                        Expanded(child: caption('Rencana')),
-                        caption(rupiah(widget.store.split[jar]!)),
-                      ],
-                    ),
-                    const Gap(7),
-                    GoalProgress(
-                      widget.store.split[jar] == 0
-                          ? 0
-                          : ((kind == EntryKind.save
-                                        ? savings
-                                        : widget.store.amountFor(
-                                            kind,
-                                            period,
-                                          )) /
-                                    widget.store.split[jar]!)
-                                .clamp(0, 1),
-                      color: KColors.jar(jar),
-                    ),
-                  ],
-                ),
+          for (final summary in model.summaries) ...[
+            KCard(
+              bright: true,
+              child: Column(
+                children: [
+                  Row(
+                    children: [
+                      Expanded(child: heading(summary.kind.label, size: 17)),
+                      heading(
+                        rupiah(summary.amount),
+                        color: KColors.gold,
+                        size: 20,
+                      ),
+                    ],
+                  ),
+                  Row(
+                    children: [
+                      Expanded(child: caption('Rencana')),
+                      caption(rupiah(summary.planned)),
+                    ],
+                  ),
+                  const Gap(7),
+                  GoalProgress(summary.ratio, color: KColors.jar(summary.jar)),
+                ],
               ),
-              const Gap(8),
-            ],
+            ),
+            const Gap(8),
+          ],
           if (filter == null || filter == EntryKind.spend) ...[
             heading('Kategori jajan', size: 17),
             const Gap(6),
-            for (final category in [...categories, 'Tanpa kategori'])
-              if (period.any(
-                (entry) =>
-                    entry.kind == EntryKind.spend &&
-                    (entry.category ?? 'Tanpa kategori') == category,
-              ))
-                KRow(
-                  category,
-                  '',
-                  trailing: heading(
-                    rupiah(
-                      widget.store.amountFor(
-                        EntryKind.spend,
-                        period.where(
-                          (entry) =>
-                              (entry.category ?? 'Tanpa kategori') == category,
-                        ),
-                      ),
-                    ),
-                    size: 15,
-                  ),
-                ),
+            for (final entry in model.spendingByCategory.entries)
+              KRow(
+                entry.key,
+                '',
+                trailing: heading(rupiah(entry.value), size: 15),
+              ),
             const Gap(8),
           ],
           if (shown.isEmpty)

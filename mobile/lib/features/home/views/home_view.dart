@@ -7,9 +7,9 @@ import 'package:koini/core/widgets/koini_ui.dart';
 import 'package:koini/features/dreams/views/create_dream_view.dart';
 import 'package:koini/features/dreams/views/dream_detail_view.dart';
 import 'package:koini/features/dreams/widgets/dream_image.dart';
+import 'package:koini/features/home/viewmodels/home_viewmodel.dart';
 import 'package:koini/features/home/views/weekly_summary_view.dart';
 import 'package:koini/features/jars/views/jar_detail_view.dart';
-import 'package:koini/features/missions/mission_content.dart';
 import 'package:koini/features/missions/views/mission_quiz_view.dart';
 import 'package:koini/features/transactions/views/add_transaction_view.dart';
 import 'package:koini/models/koini_data.dart';
@@ -17,20 +17,33 @@ import 'package:koini/previews/preview_data.dart';
 import 'package:koini/previews/preview_host.dart';
 import 'package:koini/services/koini_store.dart';
 
-class HomeView extends StatelessWidget {
+class HomeView extends StatefulWidget {
   const HomeView({super.key, required this.store, required this.parentAccess});
   final KoiniStore store;
   final VoidCallback parentAccess;
 
   @override
-  Widget build(BuildContext context) {
-    final dream = store.activeDream;
-    final spent = store.amountFor(EntryKind.spend, store.thisWeek);
-    final next =
-        missions
-            .where((mission) => !store.scores.containsKey(mission.id))
-            .firstOrNull ??
-        missions.last;
+  State<HomeView> createState() => _HomeViewState();
+}
+
+class _HomeViewState extends State<HomeView> {
+  KoiniStore get store => widget.store;
+  late final model = HomeViewModel(store);
+
+  @override
+  void dispose() {
+    model.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) =>
+      ListenableBuilder(listenable: model, builder: buildPage);
+
+  Widget buildPage(BuildContext context, Widget? child) {
+    final dream = model.activeDream;
+    final spent = model.spentThisWeek;
+    final next = model.nextMission;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
@@ -43,7 +56,7 @@ class HomeView extends StatelessWidget {
                   DreamDetailView(
                     store: store,
                     id: dream.id,
-                    parentAccess: parentAccess,
+                    parentAccess: widget.parentAccess,
                   ),
                 ),
           child: Column(
@@ -68,7 +81,7 @@ class HomeView extends StatelessWidget {
                         if (dream != null) ...[
                           const Gap(5),
                           heading(
-                            rupiah(store.savedFor(dream)),
+                            rupiah(model.savedFor(dream)),
                             size: 29,
                             color: KColors.gold,
                           ),
@@ -85,10 +98,10 @@ class HomeView extends StatelessWidget {
                     const Illustration('bike', size: 76),
                 ],
               ),
-              Constellation(dream == null ? 0 : store.progress(dream)),
+              Constellation(dream == null ? 0 : model.progress(dream)),
               if (dream != null)
                 heading(
-                  '${(store.progress(dream) * 100).round()}% tercapai · Kurang ${rupiah(store.remaining(dream))}',
+                  '${(model.progress(dream) * 100).round()}% tercapai · Kurang ${rupiah(model.remaining(dream))}',
                   size: 15,
                 )
               else
@@ -106,12 +119,12 @@ class HomeView extends StatelessWidget {
                 crossAxisAlignment: WrapCrossAlignment.center,
                 children: [
                   heading('Uang sakuku', size: 20),
-                  caption('Minggu ini ${rupiah(store.allowance)}'),
+                  caption('Minggu ini ${rupiah(model.allowance)}'),
                 ],
               ),
             ),
             const SizedBox(width: 7),
-            KButton('Atur', small: true, onTap: parentAccess),
+            KButton('Atur', small: true, onTap: widget.parentAccess),
           ],
         ),
         const Gap(6),
@@ -150,7 +163,7 @@ class HomeView extends StatelessWidget {
                       FittedBox(
                         fit: BoxFit.scaleDown,
                         alignment: Alignment.centerLeft,
-                        child: heading(rupiah(store.balance(jar)), size: 21),
+                        child: heading(rupiah(model.balance(jar)), size: 21),
                       ),
                       const Gap(3),
                     ],
@@ -162,10 +175,10 @@ class HomeView extends StatelessWidget {
         ),
         const Gap(6),
         caption(
-          'Total tiga toples ${rupiah(store.total)}',
+          'Total tiga toples ${rupiah(model.total)}',
           align: TextAlign.center,
         ),
-        if (!store.receivedThisWeek) ...[
+        if (!model.receivedThisWeek) ...[
           const Gap(8),
           KRow(
             'Terima uang saku',
@@ -178,7 +191,7 @@ class HomeView extends StatelessWidget {
                 builder: (dialog) => AlertDialog(
                   title: heading('Uang saku sudah diterima?'),
                   content: Text(
-                    '${rupiah(store.allowance)} akan dicatat dan dibagi ke tiga toples.',
+                    '${rupiah(model.allowance)} akan dicatat dan dibagi ke tiga toples.',
                   ),
                   actions: [
                     TextButton(
@@ -193,9 +206,13 @@ class HomeView extends StatelessWidget {
                 ),
               );
               if (confirmed != true || !context.mounted) return;
-              final error = await store.receiveAllowance();
+              if (model.busy) return;
+              final received = await model.receiveAllowance();
               if (context.mounted) {
-                note(context, error ?? 'Uang saku minggu ini tercatat.');
+                note(
+                  context,
+                  received ? 'Uang saku minggu ini tercatat.' : model.error!,
+                );
               }
             },
           ),
@@ -233,7 +250,7 @@ class HomeView extends StatelessWidget {
                   children: [
                     caption('Jajan terpakai minggu ini'),
                     heading(rupiah(spent), size: 23, color: KColors.peach),
-                    caption('dari jatah ${rupiah(store.split[Jar.jajan]!)}'),
+                    caption('dari jatah ${rupiah(model.jajanAllocation)}'),
                   ],
                 ),
               ),

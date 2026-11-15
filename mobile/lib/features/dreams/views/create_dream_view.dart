@@ -4,7 +4,7 @@ import 'package:koini/app/app_router.dart';
 import 'package:koini/app/child_shell.dart';
 import 'package:koini/core/theme/koini_theme.dart';
 import 'package:koini/core/widgets/koini_ui.dart';
-import 'package:koini/features/dreams/controllers/dream_creation_controller.dart';
+import 'package:koini/features/dreams/viewmodels/dream_creation_viewmodel.dart';
 import 'package:koini/models/koini_data.dart';
 import 'package:koini/previews/preview_data.dart';
 import 'package:koini/previews/preview_host.dart';
@@ -19,28 +19,32 @@ class CreateDreamView extends StatefulWidget {
 }
 
 class _CreateDreamViewState extends State<CreateDreamView> {
-  late final form = DreamCreationController(widget.store);
+  final nameField = TextEditingController();
+  final targetField = TextEditingController();
+  late final form = DreamCreationViewModel(widget.store);
 
   @override
   void dispose() {
+    nameField.dispose();
+    targetField.dispose();
     form.dispose();
     super.dispose();
   }
 
   Future<void> save() async {
     FocusScope.of(context).unfocus();
-    final error = await form.save();
+    if (form.busy) return;
+    final saved = await form.save();
     if (!mounted) return;
-    if (error != null) {
-      await kSheet(context, 'Lengkapi impianmu', error, error: true);
+    if (!saved) {
+      await kSheet(context, 'Lengkapi impianmu', form.error!, error: true);
       return;
     }
     await openPage<void>(
       context,
       Celebration(
         title: 'Impian tersimpan!',
-        message:
-            '${form.name.text.trim()}\nYuk, mulai menabung sedikit demi sedikit.',
+        message: '${form.dreamName}\nYuk, mulai menabung sedikit demi sedikit.',
         button: 'Selesai',
       ),
     );
@@ -83,14 +87,20 @@ class _CreateDreamViewState extends State<CreateDreamView> {
           ),
           const Gap(8),
         ],
-        KField('Nama impian', form.name, hint: 'Buku komik', length: 32),
+        KField(
+          'Nama impian',
+          nameField,
+          hint: 'Buku komik',
+          length: 32,
+          onChanged: form.changeName,
+        ),
         const Gap(10),
         KField(
           'Harga target',
-          form.target,
+          targetField,
           numeric: true,
           hint: '100000',
-          onChanged: (_) => form.refreshEstimate(),
+          onChanged: form.changeTarget,
         ),
         const Gap(10),
         heading('Tabungan mingguan', size: 16),

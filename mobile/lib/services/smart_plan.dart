@@ -14,4 +14,7 @@ class SmartPlan {
   int get remaining => max(0, target - saved);
   int get weeks => (remaining + weekly - 1) ~/ weekly;
   int balanceAt(int week) => min(target, saved + week * weekly);
+
+  static int weeklyContribution(int remaining, int weeks) =>
+      (remaining + weeks - 1) ~/ weeks;
 }

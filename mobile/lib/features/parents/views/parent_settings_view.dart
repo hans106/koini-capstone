@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/widget_previews.dart';
 import 'package:koini/app/app_router.dart';
 import 'package:koini/core/widgets/koini_ui.dart';
-import 'package:koini/features/parents/controllers/parent_settings_controller.dart';
+import 'package:koini/features/parents/viewmodels/parent_settings_viewmodel.dart';
 import 'package:koini/features/parents/views/allowance_settings_view.dart';
 import 'package:koini/features/parents/views/change_pin_view.dart';
 import 'package:koini/features/parents/views/email_preview_view.dart';
@@ -25,7 +25,7 @@ class ParentSettingsView extends StatefulWidget {
 
 class _ParentSettingsViewState extends State<ParentSettingsView> {
   KoiniStore get store => widget.store;
-  late final form = ParentSettingsController(store);
+  late final form = ParentSettingsViewModel(store);
 
   @override
   void dispose() {
@@ -34,14 +34,15 @@ class _ParentSettingsViewState extends State<ParentSettingsView> {
   }
 
   Future<void> save() async {
-    final error = await form.save();
+    if (form.busy) return;
+    final saved = await form.save();
     if (!mounted) return;
-    note(context, error ?? 'Setelan orang tua tersimpan.');
+    note(context, saved ? 'Setelan orang tua tersimpan.' : form.error!);
   }
 
   @override
   Widget build(BuildContext context) => ListenableBuilder(
-    listenable: Listenable.merge([store, form]),
+    listenable: form,
     builder: (context, _) => KPage(
       title: 'Setelan orang tua',
       subtitle: 'Dikelola oleh Ayah/Bunda',
@@ -49,7 +50,7 @@ class _ParentSettingsViewState extends State<ParentSettingsView> {
       children: [
         KRow(
           'Uang saku',
-          '${rupiah(store.allowance)} per minggu Â· Batas ${rupiah(store.dailyLimit)} per hari',
+          '${rupiah(form.allowance)} per minggu Â· Batas ${rupiah(form.dailyLimit)} per hari',
           onTap: () => openPage(context, AllowanceSettingsView(store: store)),
         ),
         const Gap(8),
@@ -67,9 +68,9 @@ class _ParentSettingsViewState extends State<ParentSettingsView> {
                         children: [
                           heading('Email Ayah/Bunda', size: 17),
                           caption(
-                            store.email.isEmpty
+                            form.email.isEmpty
                                 ? 'Email belum diisi'
-                                : store.email,
+                                : form.email,
                           ),
                         ],
                       ),
@@ -99,9 +100,9 @@ class _ParentSettingsViewState extends State<ParentSettingsView> {
           child: SwitchListTile(
             title: const Text('Cerita Koini'),
             subtitle: caption('Cerita edukasi pilihan Â· Demo Koini Plus'),
-            value: store.hasPlus && form.stories,
+            value: form.stories,
             onChanged: (value) {
-              if (!store.hasPlus) {
+              if (!form.hasPlus) {
                 plusGate(
                   context,
                   yearly: false,
@@ -158,9 +159,9 @@ class _ParentSettingsViewState extends State<ParentSettingsView> {
         const Gap(7),
         KRow(
           'Beri nilai Koini',
-          store.rating == 0
+          form.rating == 0
               ? 'Bantu kami menjadi lebih baik'
-              : '${store.rating}/5 bintang',
+              : '${form.rating}/5 bintang',
           onTap: () => rate(context, store),
         ),
       ],

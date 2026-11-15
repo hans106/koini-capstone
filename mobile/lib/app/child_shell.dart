@@ -1,11 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:koini/app/app_router.dart';
+import 'package:koini/app/child_shell_viewmodel.dart';
 import 'package:koini/core/theme/koini_theme.dart';
 import 'package:koini/core/widgets/koini_ui.dart';
 import 'package:koini/features/dreams/views/dream_list_view.dart';
 import 'package:koini/features/home/views/home_view.dart';
 import 'package:koini/features/home/widgets/child_navigation_bar.dart';
-import 'package:koini/features/missions/mission_content.dart';
 import 'package:koini/features/missions/views/koini_story_view.dart';
 import 'package:koini/features/missions/views/mission_map_view.dart';
 import 'package:koini/features/rewards/views/badge_gallery_view.dart';
@@ -31,6 +31,7 @@ class ChildShell extends StatefulWidget {
 
 class _ChildShellState extends State<ChildShell> {
   late int index = widget.initialTab.index;
+  late final model = ChildShellViewModel(widget.store);
   bool parentOpening = false;
   KoiniStore get store => widget.store;
 
@@ -47,11 +48,17 @@ class _ChildShellState extends State<ChildShell> {
   }
 
   @override
+  void dispose() {
+    model.dispose();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) => ListenableBuilder(
-    listenable: store,
+    listenable: model,
     builder: (context, _) {
       final title = [
-        'Hai, ${store.name}!',
+        'Hai, ${model.name}!',
         'Impian kamu',
         'Catatan uangku',
         'Peta misi',
@@ -59,9 +66,9 @@ class _ChildShellState extends State<ChildShell> {
       ][index];
       final subtitle = [
         'Rencana uang sakumu hari ini.',
-        '${store.dreams.length} impian sedang ditabung.',
+        '${model.dreamCount} impian sedang ditabung.',
         '',
-        '${store.scores.length} dari ${missions.length} misi',
+        '${model.completedMissions} dari ${model.missionCount} misi',
         '',
       ][index];
       final content = switch (ChildTab.values[index]) {
@@ -73,7 +80,7 @@ class _ChildShellState extends State<ChildShell> {
         ChildTab.history => TransactionHistoryView(
           store: store,
           onStructured: () {
-            if (store.hasPlus) {
+            if (model.hasPlus) {
               openPage(context, StructuredHistoryView(store: store));
             } else {
               plusGate(context, yearly: false, parentAccess: parentAccess);
@@ -121,7 +128,7 @@ class _ChildShellState extends State<ChildShell> {
                               Expanded(child: heading(title, size: 26)),
                               if (index == 0) ...[
                                 Pill(
-                                  '${store.streak} hari',
+                                  '${model.streak} hari',
                                   icon: Icons.local_fire_department_rounded,
                                   color: KColors.peach,
                                   onTap: () => select(4),
@@ -130,7 +137,7 @@ class _ChildShellState extends State<ChildShell> {
                               ],
                               if (index == 0 || index == 3)
                                 Pill(
-                                  '${store.stars}',
+                                  '${model.stars}',
                                   icon: Icons.star_rounded,
                                   color: KColors.gold,
                                   onTap: () => openPage(
@@ -140,7 +147,7 @@ class _ChildShellState extends State<ChildShell> {
                                 ),
                               if (index == 1)
                                 Pill(
-                                  '${store.dreams.length} impian',
+                                  '${model.dreamCount} impian',
                                   color: KColors.gold,
                                 ),
                             ],

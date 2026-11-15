@@ -3,7 +3,7 @@ import 'package:flutter/widget_previews.dart';
 import 'package:koini/app/child_shell.dart';
 import 'package:koini/core/theme/koini_theme.dart';
 import 'package:koini/core/widgets/koini_ui.dart';
-import 'package:koini/features/rewards/controllers/badge_progress.dart';
+import 'package:koini/features/rewards/viewmodels/rewards_viewmodel.dart';
 import 'package:koini/features/rewards/widgets/badge_icon.dart';
 import 'package:koini/previews/preview_data.dart';
 import 'package:koini/previews/preview_host.dart';
@@ -19,12 +19,21 @@ class BadgeGalleryView extends StatefulWidget {
 
 class _BadgeGalleryViewState extends State<BadgeGalleryView> {
   int filter = 0;
+  late final model = RewardsViewModel(widget.store);
 
   @override
-  Widget build(BuildContext context) {
-    final all = badges(widget.store);
-    final earned = all.where((badge) => badge.earned).toList();
-    final locked = all.where((badge) => !badge.earned).toList();
+  void dispose() {
+    model.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) =>
+      ListenableBuilder(listenable: model, builder: buildPage);
+
+  Widget buildPage(BuildContext context, Widget? child) {
+    final earned = model.earned.toList();
+    final locked = model.locked.toList();
     return KPage(
       title: 'Galeri lencana',
       subtitle: '${earned.length} lencana sudah kamu peroleh',

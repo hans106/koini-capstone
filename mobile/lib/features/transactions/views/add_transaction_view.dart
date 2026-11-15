@@ -4,7 +4,7 @@ import 'package:koini/app/app_router.dart';
 import 'package:koini/app/child_shell.dart';
 import 'package:koini/core/theme/koini_theme.dart';
 import 'package:koini/core/widgets/koini_ui.dart';
-import 'package:koini/features/transactions/controllers/transaction_controller.dart';
+import 'package:koini/features/transactions/viewmodels/transaction_viewmodel.dart';
 import 'package:koini/models/koini_data.dart';
 import 'package:koini/previews/preview_data.dart';
 import 'package:koini/previews/preview_host.dart';
@@ -31,14 +31,13 @@ class AddTransactionView extends StatefulWidget {
 
 class _AddTransactionViewState extends State<AddTransactionView> {
   final memo = TextEditingController();
-  late final form = TransactionController(
+  late final form = TransactionViewModel(
     widget.store,
     kind: widget.kind,
     dream: widget.dream,
     destination: widget.destination,
     source: widget.source,
   );
-  KoiniStore get store => widget.store;
   EntryKind get kind => form.kind;
   Dream? get dream => form.dream;
   int get amount => form.amount;
@@ -60,13 +59,14 @@ class _AddTransactionViewState extends State<AddTransactionView> {
       );
       return;
     }
-    final error = await form.save(memo.text);
+    if (form.busy) return;
+    final saved = await form.save(memo.text);
     if (!mounted) return;
-    if (error != null) {
+    if (!saved) {
       await kSheet(
         context,
         'Periksa nominalnya',
-        error,
+        form.error!,
         primary: 'Ubah nominal',
         error: true,
       );
@@ -89,7 +89,7 @@ class _AddTransactionViewState extends State<AddTransactionView> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       heading(dream!.name, size: 19),
-                      caption(rupiah(store.savedFor(dream!))),
+                      caption(rupiah(form.savedForDream)),
                       const Gap(9),
                       const GoalProgress(1, color: KColors.mint),
                     ],
@@ -135,7 +135,7 @@ class _AddTransactionViewState extends State<AddTransactionView> {
       ListenableBuilder(listenable: form, builder: buildPage);
 
   Widget buildPage(BuildContext context, Widget? child) {
-    final spending = store.amountFor(EntryKind.spend, store.thisWeek);
+    final spending = form.spendingThisWeek;
     final options = [
       EntryKind.spend,
       EntryKind.save,
@@ -182,11 +182,11 @@ class _AddTransactionViewState extends State<AddTransactionView> {
           KCard(
             border: KColors.peach,
             child: caption(
-              'Jajan terpakai ${rupiah(spending)} minggu ini.\nSisa toples Jajan ${rupiah(store.balance(Jar.jajan))}.',
+              'Jajan terpakai ${rupiah(spending)} minggu ini.\nSisa toples Jajan ${rupiah(form.balance(Jar.jajan))}.',
               color: KColors.peach,
             ),
           ),
-          if (store.hasPlus) ...[
+          if (form.hasPlus) ...[
             const Gap(9),
             caption('Kategori pengeluaran'),
             const Gap(6),
@@ -206,7 +206,7 @@ class _AddTransactionViewState extends State<AddTransactionView> {
         ],
         if (kind == EntryKind.give)
           caption(
-            'Sisa toples Berbagi ${rupiah(store.balance(Jar.berbagi))}.',
+            'Sisa toples Berbagi ${rupiah(form.balance(Jar.berbagi))}.',
             color: KColors.lavender,
           ),
         if (kind == EntryKind.transfer) ...[
@@ -231,9 +231,7 @@ class _AddTransactionViewState extends State<AddTransactionView> {
                   onTap: () => form.chooseDream(null),
                 ),
               for (final item
-                  in widget.dream == null
-                      ? store.dreams.where((item) => store.remaining(item) > 0)
-                      : [widget.dream!])
+                  in widget.dream == null ? form.activeDreams : [widget.dream!])
                 Pill(
                   item.name,
                   selected: dream?.id == item.id,
@@ -264,7 +262,7 @@ class _AddTransactionViewState extends State<AddTransactionView> {
             ),
             const Gap(5),
             caption(
-              'Tabung yang belum dibagi ${rupiah(store.availableSavings)}.',
+              'Tabung yang belum dibagi ${rupiah(form.availableSavings)}.',
             ),
           ],
         ],

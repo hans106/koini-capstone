@@ -4,8 +4,8 @@ import 'package:koini/app/app_router.dart';
 import 'package:koini/app/child_shell.dart';
 import 'package:koini/core/theme/koini_theme.dart';
 import 'package:koini/core/widgets/koini_ui.dart';
-import 'package:koini/features/missions/controllers/mission_quiz_controller.dart';
 import 'package:koini/features/missions/mission_content.dart';
+import 'package:koini/features/missions/viewmodels/mission_quiz_viewmodel.dart';
 import 'package:koini/models/mission.dart';
 import 'package:koini/previews/preview_host.dart';
 import 'package:koini/services/koini_store.dart';
@@ -24,7 +24,7 @@ class MissionQuizView extends StatefulWidget {
 }
 
 class _MissionQuizViewState extends State<MissionQuizView> {
-  late final quiz = MissionQuizController(widget.store, widget.mission);
+  late final quiz = MissionQuizViewModel(widget.store, widget.mission);
 
   @override
   void dispose() {
@@ -46,18 +46,18 @@ class _MissionQuizViewState extends State<MissionQuizView> {
         header: 'Misi selesai',
         title: 'Kamu makin pintar!',
         message:
-            '${widget.mission.name} · $score dari 5 benar pada percobaan pertama',
+            '${widget.mission.name} · $score dari ${quiz.questionCount} benar pada percobaan pertama',
         button: 'Kembali ke misi',
         details: [
           KRow(
             '+$awarded bintang',
-            'Total kamu sekarang ${widget.store.stars} bintang.',
+            'Total kamu sekarang ${quiz.stars} bintang.',
             color: KColors.gold,
             icon: const Icon(Icons.star, color: KColors.gold, size: 37),
           ),
           const Gap(9),
           KCallout(
-            'Streak ${widget.store.streak} hari',
+            'Streak ${quiz.streak} hari',
             'Langkah kecil hari ini membuatmu makin siap mengatur uang saku.',
           ),
           const Gap(9),
@@ -86,7 +86,7 @@ class _MissionQuizViewState extends State<MissionQuizView> {
         width: 218,
         child: Row(
           children: [
-            for (var i = 0; i < 5; i++)
+            for (var i = 0; i < quiz.questionCount; i++)
               Expanded(
                 child: Padding(
                   padding: const EdgeInsets.only(right: 4),
@@ -97,7 +97,7 @@ class _MissionQuizViewState extends State<MissionQuizView> {
                 ),
               ),
             const SizedBox(width: 5),
-            caption('${index + 1} dari 5'),
+            caption('${index + 1} dari ${quiz.questionCount}'),
           ],
         ),
       ),
@@ -105,7 +105,7 @@ class _MissionQuizViewState extends State<MissionQuizView> {
           ? null
           : KButton(
               correctAnswer ? 'Lanjut' : 'Coba lagi',
-              onTap: quiz.saving ? null : next,
+              onTap: quiz.busy ? null : next,
             ),
       children: [
         KCard(

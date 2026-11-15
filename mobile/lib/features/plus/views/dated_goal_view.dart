@@ -3,6 +3,7 @@ import 'package:flutter/widget_previews.dart';
 import 'package:koini/app/child_shell.dart';
 import 'package:koini/core/theme/koini_theme.dart';
 import 'package:koini/core/widgets/koini_ui.dart';
+import 'package:koini/features/plus/viewmodels/dated_goal_viewmodel.dart';
 import 'package:koini/models/koini_data.dart';
 import 'package:koini/previews/preview_data.dart';
 import 'package:koini/previews/preview_host.dart';
@@ -18,36 +19,36 @@ class DatedGoalView extends StatefulWidget {
 }
 
 class _DatedGoalViewState extends State<DatedGoalView> {
-  late DateTime deadline =
-      widget.dream.deadline?.isAfter(widget.store.now) == true
-      ? widget.dream.deadline!
-      : widget.store.now.add(const Duration(days: 84));
-  bool busy = false;
+  late final model = DatedGoalViewModel(widget.store, widget.dream);
 
   @override
-  Widget build(BuildContext context) {
-    final today = dayStart(widget.store.now);
-    final difference = dayStart(deadline).difference(today).inDays;
-    final weeks = ((difference + 6) ~/ 7).clamp(1, 999);
-    final remaining = widget.store.remaining(widget.dream);
-    final contribution = (remaining + weeks - 1) ~/ weeks;
+  Widget build(BuildContext context) =>
+      ListenableBuilder(listenable: model, builder: buildPage);
+
+  @override
+  void dispose() {
+    model.dispose();
+    super.dispose();
+  }
+
+  Widget buildPage(BuildContext context, Widget? child) {
+    final today = model.today;
+    final deadline = model.deadline;
+    final weeks = model.weeks;
+    final remaining = model.remaining;
+    final contribution = model.contribution;
     return KPage(
       title: 'Target bertanggal',
       footer: KButton(
         'Simpan target',
-        onTap: busy || remaining == 0
+        onTap: model.busy || remaining == 0
             ? null
             : () async {
-                setState(() => busy = true);
-                final error = await widget.store.setDreamPlan(
-                  widget.dream,
-                  contribution,
-                  deadline: deadline,
-                );
+                if (model.busy) return;
+                final saved = await model.save();
                 if (!context.mounted) return;
-                if (error != null) {
-                  setState(() => busy = false);
-                  note(context, error);
+                if (!saved) {
+                  note(context, model.error!);
                 } else {
                   note(context, 'Target bertanggal tersimpan.');
                   Navigator.pop(context);
@@ -70,14 +71,13 @@ class _DatedGoalViewState extends State<DatedGoalView> {
                 dayStart(deadline) == dayStart(today.add(Duration(days: days)))
                 ? KColors.gold
                 : null,
-            onTap: () =>
-                setState(() => deadline = today.add(Duration(days: days))),
+            onTap: () => model.chooseDate(today.add(Duration(days: days))),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 heading(dateLabel(today.add(Duration(days: days))), size: 17),
                 caption(
-                  '${rupiah((remaining + days ~/ 7 - 1) ~/ (days ~/ 7))} per minggu · ${days ~/ 7} minggu',
+                  '${rupiah(model.contributionFor(days ~/ 7))} per minggu · ${days ~/ 7} minggu',
                 ),
               ],
             ),
@@ -95,7 +95,7 @@ class _DatedGoalViewState extends State<DatedGoalView> {
               firstDate: today.add(const Duration(days: 1)),
               lastDate: today.add(const Duration(days: 1825)),
             );
-            if (choice != null && mounted) setState(() => deadline = choice);
+            if (choice != null && mounted) model.chooseDate(choice);
           },
         ),
         const Gap(),

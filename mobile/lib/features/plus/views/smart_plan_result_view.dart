@@ -3,13 +3,14 @@ import 'package:flutter/widget_previews.dart';
 import 'package:koini/app/child_shell.dart';
 import 'package:koini/core/theme/koini_theme.dart';
 import 'package:koini/core/widgets/koini_ui.dart';
+import 'package:koini/features/plus/viewmodels/smart_plan_result_viewmodel.dart';
 import 'package:koini/models/koini_data.dart';
 import 'package:koini/previews/preview_data.dart';
 import 'package:koini/previews/preview_host.dart';
 import 'package:koini/services/koini_store.dart';
 import 'package:koini/services/smart_plan.dart';
 
-class SmartPlanResultView extends StatelessWidget {
+class SmartPlanResultView extends StatefulWidget {
   const SmartPlanResultView({
     super.key,
     required this.store,
@@ -21,29 +22,50 @@ class SmartPlanResultView extends StatelessWidget {
   final SmartPlan plan;
 
   @override
-  Widget build(BuildContext context) {
+  State<SmartPlanResultView> createState() => _SmartPlanResultViewState();
+}
+
+class _SmartPlanResultViewState extends State<SmartPlanResultView> {
+  late final model = SmartPlanResultViewModel(
+    widget.store,
+    widget.dream,
+    widget.plan,
+  );
+
+  @override
+  void dispose() {
+    model.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) =>
+      ListenableBuilder(listenable: model, builder: buildPage);
+
+  Widget buildPage(BuildContext context, Widget? child) {
+    final plan = model.plan;
+    final dream = model.dream;
     final weeks = plan.weeks;
-    final saveToDream =
-        dream != null &&
-        plan.target == dream!.target &&
-        plan.saved == store.savedFor(dream!) &&
-        weeks > 0;
+    final saveToDream = model.canSave;
     return KPage(
       title: 'Rencana Pintar',
       footer: KButton(
         saveToDream ? 'Pakai rencana ini' : 'Selesai',
-        onTap: () async {
-          if (saveToDream) {
-            final error = await store.setDreamPlan(dream!, plan.weekly);
-            if (!context.mounted) return;
-            if (error != null) {
-              note(context, error);
-              return;
-            }
-            note(context, 'Rencana impian tersimpan.');
-          }
-          if (context.mounted) Navigator.pop(context);
-        },
+        onTap: model.busy
+            ? null
+            : () async {
+                if (saveToDream) {
+                  if (model.busy) return;
+                  final saved = await model.save();
+                  if (!context.mounted) return;
+                  if (!saved) {
+                    note(context, model.error!);
+                    return;
+                  }
+                  note(context, 'Rencana impian tersimpan.');
+                }
+                if (context.mounted) Navigator.pop(context);
+              },
       ),
       children: [
         KCard(

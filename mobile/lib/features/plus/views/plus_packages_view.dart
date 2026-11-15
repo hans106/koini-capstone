@@ -5,6 +5,7 @@ import 'package:koini/core/theme/koini_theme.dart';
 import 'package:koini/core/widgets/koini_ui.dart';
 import 'package:koini/features/parents/views/parent_dashboard_view.dart';
 import 'package:koini/features/parents/views/parent_pin_view.dart';
+import 'package:koini/features/plus/viewmodels/plus_packages_viewmodel.dart';
 import 'package:koini/features/plus/views/active_plan_view.dart';
 import 'package:koini/models/koini_data.dart';
 import 'package:koini/previews/preview_data.dart';
@@ -37,11 +38,9 @@ class PlusPackagesView extends StatefulWidget {
 }
 
 class _PlusPackagesViewState extends State<PlusPackagesView> {
-  late Plan selected = widget.store.plan;
-  bool busy = false;
-
   Future<void> confirmPlan() async {
-    final plan = selected;
+    if (!model.beginConfirmation()) return;
+    final plan = model.selected;
     final confirmed = await showDialog<bool>(
       context: context,
       useRootNavigator: false,
@@ -62,19 +61,22 @@ class _PlusPackagesViewState extends State<PlusPackagesView> {
         ],
       ),
     );
-    if (!mounted || confirmed != true) return;
-    setState(() => busy = true);
+    if (!mounted) return;
+    if (confirmed != true) {
+      model.endConfirmation();
+      return;
+    }
     final result = await openPage<bool>(
       context,
       ParentPinView(
         title: 'PIN Ayah/Bunda',
         prompt: 'Masukkan PIN 6 angka untuk memilih paket ${plan.label}.',
         buttonLabel: 'Aktifkan paket demo',
-        verify: (pin) => widget.store.activatePlan(plan, pin),
+        verify: (pin) => model.verify(plan, pin),
       ),
     );
     if (!mounted) return;
-    setState(() => busy = false);
+    model.endConfirmation();
     if (result == true && plan != Plan.free) {
       await openPage<void>(
         context,
@@ -89,19 +91,26 @@ class _PlusPackagesViewState extends State<PlusPackagesView> {
     }
   }
 
+  late final model = PlusPackagesViewModel(widget.store);
+
   @override
-  Widget build(BuildContext context) => KPage(
+  Widget build(BuildContext context) =>
+      ListenableBuilder(listenable: model, builder: buildPage);
+
+  @override
+  void dispose() {
+    model.dispose();
+    super.dispose();
+  }
+
+  Widget buildPage(BuildContext context, Widget? child) => KPage(
     title: 'Koini Plus',
-    trailing: Pill(
-      widget.store.plan.label,
-      icon: Icons.star,
-      color: KColors.gold,
-    ),
+    trailing: Pill(model.current.label, icon: Icons.star, color: KColors.gold),
     footer: KButton(
-      selected == widget.store.plan
+      model.selected == model.current
           ? 'Paket sedang aktif'
-          : 'Mulai paket ${selected.label}',
-      onTap: busy || selected == widget.store.plan ? null : confirmPlan,
+          : 'Mulai paket ${model.selected.label}',
+      onTap: model.canConfirm ? confirmPlan : null,
     ),
     children: [
       const KCallout(
@@ -113,15 +122,15 @@ class _PlusPackagesViewState extends State<PlusPackagesView> {
       const Gap(6),
       for (final plan in Plan.values) ...[
         KCard(
-          border: plan == selected ? KColors.gold : null,
-          onTap: () => setState(() => selected = plan),
+          border: plan == model.selected ? KColors.gold : null,
+          onTap: () => model.select(plan),
           child: Row(
             children: [
               Icon(
-                plan == selected
+                plan == model.selected
                     ? Icons.radio_button_checked
                     : Icons.radio_button_off,
-                color: plan == selected ? KColors.gold : KColors.soft,
+                color: plan == model.selected ? KColors.gold : KColors.soft,
               ),
               const SizedBox(width: 9),
               Expanded(

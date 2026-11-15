@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:koini/core/theme/koini_theme.dart';
 import 'package:koini/core/widgets/koini_ui.dart';
 import 'package:koini/models/koini_data.dart';
+import 'package:koini/models/transaction_totals.dart';
 
 class EntryRow extends StatelessWidget {
   const EntryRow(this.entry, {super.key});
@@ -34,26 +35,22 @@ Color entryColor(EntryKind kind) => switch (kind) {
 };
 
 class Totals extends StatelessWidget {
-  const Totals(this.entries, {super.key});
-  final List<MoneyEntry> entries;
+  const Totals(this.totals, {super.key});
+  final TransactionTotals totals;
 
   @override
   Widget build(BuildContext context) {
-    final income = entries.fold<int>(0, (sum, entry) => sum + entry.income);
-    final expense = entries.fold<int>(0, (sum, entry) => sum + entry.expense);
-    final saved = entries.fold<int>(
-      0,
-      (sum, entry) => sum + (entry.changes[Jar.tabung] ?? 0),
-    );
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Expanded(child: Stat('Masuk', rupiah(income), border: KColors.gold)),
+        Expanded(
+          child: Stat('Masuk', rupiah(totals.income), border: KColors.gold),
+        ),
         const SizedBox(width: 7),
         Expanded(
           child: Stat(
             'Keluar',
-            rupiah(expense),
+            rupiah(totals.expense),
             color: KColors.peach,
             border: KColors.peach,
           ),
@@ -62,7 +59,7 @@ class Totals extends StatelessWidget {
         Expanded(
           child: Stat(
             'Ditabung',
-            rupiah(saved),
+            rupiah(totals.saved),
             color: KColors.mint,
             border: KColors.mint,
           ),

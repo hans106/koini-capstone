@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/widget_previews.dart';
 import 'package:koini/core/widgets/koini_ui.dart';
 import 'package:koini/features/jars/widgets/jar_split_editor.dart';
-import 'package:koini/features/parents/controllers/allowance_settings_controller.dart';
+import 'package:koini/features/parents/viewmodels/allowance_settings_viewmodel.dart';
 import 'package:koini/features/parents/views/parent_dashboard_view.dart';
 import 'package:koini/previews/preview_host.dart';
 import 'package:koini/services/koini_store.dart';
@@ -16,10 +16,15 @@ class AllowanceSettingsView extends StatefulWidget {
 }
 
 class _AllowanceSettingsViewState extends State<AllowanceSettingsView> {
-  late final form = AllowanceSettingsController(widget.store);
+  late final form = AllowanceSettingsViewModel(widget.store);
+
+  late final amountField = TextEditingController(text: form.total.toString());
+  late final limitField = TextEditingController(text: form.limit.toString());
 
   @override
   void dispose() {
+    amountField.dispose();
+    limitField.dispose();
     form.dispose();
     super.dispose();
   }
@@ -35,25 +40,31 @@ class _AllowanceSettingsViewState extends State<AllowanceSettingsView> {
       onTap: form.busy
           ? null
           : () async {
-              final error = await form.save();
+              if (form.busy) return;
+              final saved = await form.save();
               if (!context.mounted) return;
-              if (error == null) {
+              if (saved) {
                 Navigator.pop(context);
                 note(context, 'Rencana uang saku tersimpan.');
               } else {
-                note(context, error);
+                note(context, form.error!);
               }
             },
     ),
     children: [
       KField(
         'Nominal per minggu',
-        form.amount,
+        amountField,
         numeric: true,
         onChanged: form.changeAmount,
       ),
       const Gap(8),
-      KField('Batas jajan harian', form.limit, numeric: true),
+      KField(
+        'Batas jajan harian',
+        limitField,
+        numeric: true,
+        onChanged: form.changeLimit,
+      ),
       const Gap(10),
       JarSplitEditor(
         key: ValueKey(form.total),

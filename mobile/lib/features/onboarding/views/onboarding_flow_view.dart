@@ -2,12 +2,13 @@ import 'package:flutter/material.dart';
 import 'package:koini/app/app_router.dart';
 import 'package:koini/core/theme/koini_theme.dart';
 import 'package:koini/core/widgets/koini_ui.dart';
-import 'package:koini/features/onboarding/controllers/onboarding_controller.dart';
+import 'package:koini/features/onboarding/viewmodels/onboarding_viewmodel.dart';
 import 'package:koini/features/onboarding/views/child_profile_setup_view.dart';
 import 'package:koini/features/onboarding/views/initial_jar_split_view.dart';
 import 'package:koini/features/onboarding/views/initial_settings_view.dart';
 import 'package:koini/features/onboarding/views/parent_login_view.dart';
 import 'package:koini/features/onboarding/views/ready_to_play_view.dart';
+import 'package:koini/previews/preview_data.dart';
 import 'package:koini/services/koini_store.dart';
 
 class OnboardingFlowView extends StatefulWidget {
@@ -26,14 +27,28 @@ class OnboardingFlowView extends StatefulWidget {
 }
 
 class _OnboardingFlowViewState extends State<OnboardingFlowView> {
-  late final form = OnboardingController(
+  late final form = OnboardingViewModel(
     widget.store,
     step: widget.initialStep,
-    demo: widget.demo,
+    name:
+        widget.demo && widget.initialStep.index >= OnboardingStep.settings.index
+        ? 'Raka'
+        : '',
+    pin: widget.demo && widget.initialStep.index >= OnboardingStep.split.index
+        ? previewPin
+        : '',
   );
+  late final name = TextEditingController(text: form.name);
+  late final allowance = TextEditingController(text: form.amount.toString());
+  late final limit = TextEditingController(text: form.dailyLimit.toString());
+  final email = TextEditingController();
 
   @override
   void dispose() {
+    name.dispose();
+    allowance.dispose();
+    limit.dispose();
+    email.dispose();
     form.dispose();
     super.dispose();
   }
@@ -91,9 +106,13 @@ class _OnboardingFlowViewState extends State<OnboardingFlowView> {
             ).children(context),
             OnboardingStep.profile => ChildProfileSetupView(
               form: form,
+              name: name,
             ).children(context),
             OnboardingStep.settings => InitialSettingsView(
               form: form,
+              allowance: allowance,
+              limit: limit,
+              email: email,
             ).children(context),
             OnboardingStep.split => InitialJarSplitView(
               form: form,

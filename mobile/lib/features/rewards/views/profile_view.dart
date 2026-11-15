@@ -4,14 +4,14 @@ import 'package:koini/app/app_router.dart';
 import 'package:koini/app/child_shell.dart';
 import 'package:koini/core/theme/koini_theme.dart';
 import 'package:koini/core/widgets/koini_ui.dart';
-import 'package:koini/features/rewards/controllers/badge_progress.dart';
+import 'package:koini/features/rewards/viewmodels/rewards_viewmodel.dart';
 import 'package:koini/features/rewards/views/badge_gallery_view.dart';
 import 'package:koini/features/rewards/widgets/badge_icon.dart';
 import 'package:koini/previews/preview_data.dart';
 import 'package:koini/previews/preview_host.dart';
 import 'package:koini/services/koini_store.dart';
 
-class ProfileView extends StatelessWidget {
+class ProfileView extends StatefulWidget {
   const ProfileView({
     super.key,
     required this.store,
@@ -21,28 +21,45 @@ class ProfileView extends StatelessWidget {
   final VoidCallback parentAccess;
 
   @override
-  Widget build(BuildContext context) {
-    final earned = badges(store).where((badge) => badge.earned).toList();
+  State<ProfileView> createState() => _ProfileViewState();
+}
+
+class _ProfileViewState extends State<ProfileView> {
+  KoiniStore get store => widget.store;
+  late final model = RewardsViewModel(store);
+
+  @override
+  void dispose() {
+    model.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) =>
+      ListenableBuilder(listenable: model, builder: buildPage);
+
+  Widget buildPage(BuildContext context, Widget? child) {
+    final earned = model.earned.toList();
     void gallery() => openPage(context, BadgeGalleryView(store: store));
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         const Center(child: Mascot(size: 108, glow: true)),
         const Gap(7),
-        heading(store.name, size: 26, align: TextAlign.center),
-        caption('${store.age} tahun', align: TextAlign.center),
+        heading(model.name, size: 26, align: TextAlign.center),
+        caption('${model.age} tahun', align: TextAlign.center),
         const Gap(),
         Row(
           children: [
             Expanded(
               child: Stat(
                 'Streak belajar',
-                '${store.streak} hari',
+                '${model.streak} hari',
                 color: KColors.peach,
               ),
             ),
             const SizedBox(width: 8),
-            Expanded(child: Stat('Poin belajar', '${store.stars} bintang')),
+            Expanded(child: Stat('Poin belajar', '${model.stars} bintang')),
           ],
         ),
         const Gap(9),
@@ -90,7 +107,7 @@ class ProfileView extends StatelessWidget {
         KRow(
           'Akses orang tua',
           'Serahkan HP ke Ayah/Bunda',
-          onTap: parentAccess,
+          onTap: widget.parentAccess,
           trailing: const Icon(Icons.lock_outline_rounded, color: KColors.gold),
         ),
         const Gap(),

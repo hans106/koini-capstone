@@ -1,15 +1,23 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/widget_previews.dart';
 import 'package:koini/core/widgets/koini_ui.dart';
-import 'package:koini/features/onboarding/controllers/onboarding_controller.dart';
+import 'package:koini/features/onboarding/viewmodels/onboarding_viewmodel.dart';
 import 'package:koini/features/onboarding/views/onboarding_flow_view.dart';
 import 'package:koini/features/onboarding/views/welcome_view.dart';
 import 'package:koini/previews/preview_data.dart';
 import 'package:koini/previews/preview_host.dart';
 
 class InitialSettingsView {
-  const InitialSettingsView({required this.form});
-  final OnboardingController form;
+  const InitialSettingsView({
+    required this.form,
+    required this.allowance,
+    required this.limit,
+    required this.email,
+  });
+  final OnboardingViewModel form;
+  final TextEditingController allowance;
+  final TextEditingController limit;
+  final TextEditingController email;
 
   List<Widget> children(BuildContext context) => [
     KCard(
@@ -18,17 +26,27 @@ class InitialSettingsView {
         children: [
           KField(
             'Uang saku mingguan',
-            form.allowance,
+            allowance,
             numeric: true,
-            onChanged: (_) => form.resetSplit(),
+            onChanged: form.changeAllowance,
           ),
           const Gap(),
-          KField('Batas jajan harian', form.limit, numeric: true),
+          KField(
+            'Batas jajan harian',
+            limit,
+            numeric: true,
+            onChanged: form.changeLimit,
+          ),
         ],
       ),
     ),
     const Gap(),
-    KField('Email orang tua (opsional)', form.email, email: true),
+    KField(
+      'Email orang tua (opsional)',
+      email,
+      email: true,
+      onChanged: form.changeEmail,
+    ),
     const Gap(),
     KCard(
       child: Column(
@@ -36,12 +54,12 @@ class InitialSettingsView {
         children: [
           heading('PIN rahasia Ayah/Bunda', size: 18),
           const Gap(8),
-          PinDots(count: form.pin.length),
+          PinDots(count: form.pinLength),
           const Gap(8),
-          if (form.pin.length == 6) ...[
+          if (form.pinLength == 6) ...[
             caption('Ulangi PIN'),
             const Gap(5),
-            PinDots(count: form.confirmation.length),
+            PinDots(count: form.confirmationLength),
             const Gap(8),
           ],
           Keypad(pin: true, onDigit: form.enterPinDigit),

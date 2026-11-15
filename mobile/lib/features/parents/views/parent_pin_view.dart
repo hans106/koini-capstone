@@ -3,8 +3,8 @@ import 'package:flutter/widget_previews.dart';
 import 'package:koini/app/app_router.dart';
 import 'package:koini/app/child_shell.dart';
 import 'package:koini/core/theme/koini_theme.dart';
-import 'package:koini/core/utils/keypad_value.dart';
 import 'package:koini/core/widgets/koini_ui.dart';
+import 'package:koini/features/parents/viewmodels/parent_pin_viewmodel.dart';
 import 'package:koini/features/parents/views/parent_dashboard_view.dart';
 import 'package:koini/previews/preview_host.dart';
 
@@ -31,42 +31,30 @@ class ParentPinView extends StatefulWidget {
 }
 
 class _ParentPinViewState extends State<ParentPinView> {
-  String code = '';
-  String? error;
-  bool busy = false;
-
   Future<void> submit() async {
-    if (busy) return;
-    if (code.length != 6) {
-      setState(() => error = 'Masukkan 6 angka PIN.');
-      return;
-    }
-    setState(() => busy = true);
-    final problem = await widget.verify(code);
-    if (!mounted) return;
-    if (problem == null) {
-      if (widget.onVerified case final onVerified?) {
-        setState(() {
-          code = '';
-          busy = false;
-        });
-        onVerified();
-      } else {
-        Navigator.pop(context, true);
-      }
+    if (!await model.verify() || !mounted) return;
+    if (widget.onVerified case final onVerified?) {
+      onVerified();
     } else {
-      setState(() {
-        error = problem;
-        code = '';
-        busy = false;
-      });
+      Navigator.pop(context, true);
     }
   }
 
+  late final model = ParentPinViewModel(widget.verify);
+
   @override
-  Widget build(BuildContext context) => KPage(
+  Widget build(BuildContext context) =>
+      ListenableBuilder(listenable: model, builder: buildPage);
+
+  @override
+  void dispose() {
+    model.dispose();
+    super.dispose();
+  }
+
+  Widget buildPage(BuildContext context, Widget? child) => KPage(
     title: widget.title,
-    footer: KButton(widget.buttonLabel, onTap: busy ? null : submit),
+    footer: KButton(widget.buttonLabel, onTap: model.busy ? null : submit),
     children: [
       KCard(
         bright: true,
@@ -79,25 +67,15 @@ class _ParentPinViewState extends State<ParentPinView> {
         ),
       ),
       const Gap(17),
-      PinDots(count: code.length),
+      PinDots(count: model.length),
       const Gap(9),
       caption(
-        error ?? 'PIN tersimpan di HP ini.',
-        color: error == null ? KColors.text : KColors.error,
+        model.error ?? 'PIN tersimpan di HP ini.',
+        color: model.error == null ? KColors.text : KColors.error,
         align: TextAlign.center,
       ),
       const Gap(),
-      Keypad(
-        pin: true,
-        onDigit: (key) {
-          if (!busy) {
-            setState(() {
-              code = keypadValue(code, key, 6);
-              error = null;
-            });
-          }
-        },
-      ),
+      Keypad(pin: true, onDigit: model.enterDigit),
       if (widget.recovery)
         Center(
           child: TextButton(

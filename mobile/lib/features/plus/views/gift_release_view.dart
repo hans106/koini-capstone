@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/widget_previews.dart';
 import 'package:koini/core/widgets/koini_ui.dart';
 import 'package:koini/features/parents/views/parent_dashboard_view.dart';
+import 'package:koini/features/plus/viewmodels/gift_viewmodel.dart';
 import 'package:koini/models/koini_data.dart';
 import 'package:koini/previews/preview_data.dart';
 import 'package:koini/previews/preview_host.dart';
@@ -17,39 +18,39 @@ class GiftReleaseView extends StatefulWidget {
 
 class _GiftReleaseViewState extends State<GiftReleaseView> {
   final amount = TextEditingController();
-  Jar destination = Jar.tabung;
-  bool busy = false;
 
   @override
   void dispose() {
     amount.dispose();
+    model.dispose();
     super.dispose();
   }
 
+  late final model = GiftReleaseViewModel(widget.store);
+
   @override
-  Widget build(BuildContext context) => KPage(
+  Widget build(BuildContext context) =>
+      ListenableBuilder(listenable: model, builder: buildPage);
+
+  Widget buildPage(BuildContext context, Widget? child) => KPage(
     title: 'Kembalikan uang titipan',
     footer: KButton(
       'Catat pengembalian',
-      onTap: busy
+      onTap: model.busy
           ? null
           : () async {
-              setState(() => busy = true);
-              final error = await widget.store.releaseGift(
-                int.tryParse(amount.text) ?? 0,
-                destination,
-              );
+              if (model.busy) return;
+              final saved = await model.save(amount.text);
               if (!context.mounted) return;
-              if (error == null) {
+              if (saved) {
                 Navigator.pop(context);
               } else {
-                setState(() => busy = false);
-                note(context, error);
+                note(context, model.error!);
               }
             },
     ),
     children: [
-      Stat('Uang yang dititipkan', rupiah(widget.store.heldGift)),
+      Stat('Uang yang dititipkan', rupiah(model.heldGift)),
       const Gap(),
       KField('Uang yang dikembalikan', amount, numeric: true),
       const Gap(),
@@ -62,8 +63,8 @@ class _GiftReleaseViewState extends State<GiftReleaseView> {
           for (final jar in Jar.values)
             Pill(
               jar.label,
-              selected: destination == jar,
-              onTap: () => setState(() => destination = jar),
+              selected: model.destination == jar,
+              onTap: () => model.selectDestination(jar),
             ),
         ],
       ),

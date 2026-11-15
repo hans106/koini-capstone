@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/widget_previews.dart';
 import 'package:koini/core/widgets/koini_ui.dart';
+import 'package:koini/features/parents/viewmodels/change_pin_viewmodel.dart';
 import 'package:koini/features/parents/views/parent_dashboard_view.dart';
 import 'package:koini/previews/preview_host.dart';
 import 'package:koini/services/koini_store.dart';
@@ -17,39 +18,38 @@ class _ChangePinViewState extends State<ChangePinView> {
   final current = TextEditingController();
   final next = TextEditingController();
   final confirm = TextEditingController();
-  bool busy = false;
 
   @override
   void dispose() {
     current.dispose();
     next.dispose();
     confirm.dispose();
+    model.dispose();
     super.dispose();
   }
 
+  late final model = ChangePinViewModel(widget.store);
+
   @override
-  Widget build(BuildContext context) => KPage(
+  Widget build(BuildContext context) =>
+      ListenableBuilder(listenable: model, builder: buildPage);
+
+  Widget buildPage(BuildContext context, Widget? child) => KPage(
     title: 'Ganti PIN',
     footer: KButton(
       'Simpan PIN',
-      onTap: busy
+      onTap: model.busy
           ? null
           : () async {
-              if (current.text.length != 6 ||
-                  next.text.length != 6 ||
-                  next.text != confirm.text) {
-                note(context, 'Isi PIN lama dan ulangi PIN baru 6 angka.');
-                return;
-              }
-              setState(() => busy = true);
-              final error = await widget.store.updatePin(
+              if (model.busy) return;
+              final saved = await model.save(
                 current.text,
                 next.text,
+                confirm.text,
               );
               if (!context.mounted) return;
-              if (error != null) {
-                setState(() => busy = false);
-                note(context, error);
+              if (!saved) {
+                note(context, model.error!);
               } else {
                 Navigator.pop(context);
                 note(context, 'PIN baru tersimpan.');

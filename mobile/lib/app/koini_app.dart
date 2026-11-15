@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:koini/app/child_shell.dart';
+import 'package:koini/app/launch_viewmodel.dart';
 import 'package:koini/core/theme/koini_theme.dart';
 import 'package:koini/core/widgets/koini_ui.dart';
 import 'package:koini/features/onboarding/views/splash_view.dart';
@@ -28,27 +29,29 @@ class _Launch extends StatefulWidget {
 }
 
 class _LaunchState extends State<_Launch> {
-  late Future<void> request = load();
+  late final model = LaunchViewModel(widget.store);
 
-  Future<void> load() async {
-    await Future.wait([
-      widget.store.load(),
-      Future<void>.delayed(const Duration(milliseconds: 850)),
-    ]);
+  @override
+  void initState() {
+    super.initState();
+    model.load();
   }
 
   @override
-  Widget build(BuildContext context) => FutureBuilder(
-    future: request,
-    builder: (context, result) {
-      if (result.hasError) {
+  void dispose() {
+    model.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) => ListenableBuilder(
+    listenable: model,
+    builder: (context, _) {
+      if (model.status == LaunchStatus.failed) {
         return KPage(
           title: 'Koini',
           back: false,
-          footer: KButton(
-            'Coba lagi',
-            onTap: () => setState(() => request = load()),
-          ),
+          footer: KButton('Coba lagi', onTap: model.load),
           children: [
             const KCallout(
               'Data belum bisa dibuka',
@@ -57,10 +60,10 @@ class _LaunchState extends State<_Launch> {
           ],
         );
       }
-      if (result.connectionState != ConnectionState.done) {
+      if (model.status == LaunchStatus.loading) {
         return const SplashView();
       }
-      return widget.store.hasProfile
+      return model.status == LaunchStatus.childArea
           ? ChildShell(store: widget.store)
           : WelcomeView(store: widget.store);
     },

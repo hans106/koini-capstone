@@ -2,15 +2,16 @@ import 'package:flutter/material.dart';
 import 'package:flutter/widget_previews.dart';
 import 'package:koini/core/theme/koini_theme.dart';
 import 'package:koini/core/widgets/koini_ui.dart';
-import 'package:koini/features/onboarding/controllers/onboarding_controller.dart';
+import 'package:koini/features/onboarding/viewmodels/onboarding_viewmodel.dart';
 import 'package:koini/features/onboarding/views/onboarding_flow_view.dart';
 import 'package:koini/features/onboarding/views/welcome_view.dart';
 import 'package:koini/previews/preview_data.dart';
 import 'package:koini/previews/preview_host.dart';
 
 class ChildProfileSetupView {
-  const ChildProfileSetupView({required this.form});
-  final OnboardingController form;
+  const ChildProfileSetupView({required this.form, required this.name});
+  final OnboardingViewModel form;
+  final TextEditingController name;
 
   List<Widget> children(BuildContext context) => [
     const Text('Buat profil anak yang akan dipakai di aplikasi.'),
@@ -19,7 +20,13 @@ class ChildProfileSetupView {
     const Gap(5),
     caption('Avatar anak', align: TextAlign.center),
     const Gap(18),
-    KField('Nama panggilan', form.name, hint: 'Raka', length: 24),
+    KField(
+      'Nama panggilan',
+      name,
+      onChanged: form.changeName,
+      hint: 'Raka',
+      length: 24,
+    ),
     const Gap(12),
     Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,

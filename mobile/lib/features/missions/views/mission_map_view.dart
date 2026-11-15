@@ -3,24 +3,37 @@ import 'package:flutter/widget_previews.dart';
 import 'package:koini/app/app_router.dart';
 import 'package:koini/app/child_shell.dart';
 import 'package:koini/core/widgets/koini_ui.dart';
-import 'package:koini/features/missions/mission_content.dart';
+import 'package:koini/features/missions/viewmodels/mission_map_viewmodel.dart';
 import 'package:koini/features/missions/views/mission_quiz_view.dart';
 import 'package:koini/features/missions/widgets/mission_trail.dart';
 import 'package:koini/previews/preview_data.dart';
 import 'package:koini/previews/preview_host.dart';
 import 'package:koini/services/koini_store.dart';
 
-class MissionMapView extends StatelessWidget {
+class MissionMapView extends StatefulWidget {
   const MissionMapView({super.key, required this.store, required this.onStory});
   final KoiniStore store;
   final VoidCallback onStory;
 
   @override
-  Widget build(BuildContext context) {
-    final nextIndex = missions.indexWhere(
-      (mission) => !store.scores.containsKey(mission.id),
-    );
-    final next = nextIndex < 0 ? missions.last : missions[nextIndex];
+  State<MissionMapView> createState() => _MissionMapViewState();
+}
+
+class _MissionMapViewState extends State<MissionMapView> {
+  KoiniStore get store => widget.store;
+  late final model = MissionMapViewModel(store);
+
+  @override
+  void dispose() {
+    model.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) =>
+      ListenableBuilder(listenable: model, builder: buildPage);
+
+  Widget buildPage(BuildContext context, Widget? child) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
@@ -29,16 +42,16 @@ class MissionMapView extends StatelessWidget {
         SizedBox(
           height: 355,
           child: CustomPaint(
-            painter: MissionTrail(progress: store.scores.length),
+            painter: MissionTrail(progress: model.completed),
             child: Column(
               children: [
-                for (var index = 0; index < missions.length; index++)
+                for (final (index, stop) in model.stops.indexed)
                   Expanded(
                     child: MissionStop(
-                      mission: missions[index],
+                      mission: stop.mission,
                       store: store,
-                      locked: nextIndex >= 0 && index > nextIndex,
-                      current: index == nextIndex,
+                      locked: stop.locked,
+                      current: stop.current,
                       reversed: index.isOdd,
                     ),
                   ),
@@ -48,17 +61,19 @@ class MissionMapView extends StatelessWidget {
         ),
         const Gap(12),
         KCallout(
-          '${store.scores.length} misi selesai',
+          '${model.completed} misi selesai',
           'Bintang untuk belajar, bukan uang.',
         ),
         const Gap(10),
         KButton(
           'Main misi',
-          onTap: () =>
-              openPage(context, MissionQuizView(store: store, mission: next)),
+          onTap: () => openPage(
+            context,
+            MissionQuizView(store: store, mission: model.next),
+          ),
         ),
         const Gap(9),
-        KButton('Cerita bersama', secondary: true, onTap: onStory),
+        KButton('Cerita bersama', secondary: true, onTap: widget.onStory),
       ],
     );
   }
