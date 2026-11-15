@@ -1,13 +1,18 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:go_router/go_router.dart';
 import 'package:koini/app/koini_app.dart';
 import 'package:koini/core/theme/koini_theme.dart';
+import 'package:koini/features/auth/views/login_view.dart';
+import 'package:koini/features/auth/views/sign_up_view.dart';
 import 'package:koini/features/dreams/views/create_dream_view.dart';
 import 'package:koini/features/dreams/views/dream_detail_view.dart';
 import 'package:koini/features/home/views/weekly_summary_view.dart';
 import 'package:koini/features/jars/views/jar_detail_view.dart';
 import 'package:koini/features/missions/mission_content.dart';
 import 'package:koini/features/missions/views/koini_story_view.dart';
+import 'package:koini/features/onboarding/views/splash_view.dart';
 import 'package:koini/features/parents/views/allowance_settings_view.dart';
 import 'package:koini/features/parents/views/change_pin_view.dart';
 import 'package:koini/features/parents/views/email_preview_view.dart';
@@ -27,12 +32,20 @@ import 'package:koini/services/koini_store.dart';
 
 import 'koini_store_test.dart' show MemoryStorage, createProfile;
 
-Future<void> start(WidgetTester tester, KoiniStore store) async {
+Future<void> start(
+  WidgetTester tester,
+  KoiniStore store, {
+  bool signIn = true,
+}) async {
   await tester.binding.setSurfaceSize(const Size(390, 844));
   addTearDown(() => tester.binding.setSurfaceSize(null));
   await tester.pumpWidget(KoiniApp(store: store));
+  await tester.pump();
+  expect(find.byType(SplashView), findsOneWidget);
   await tester.pump(const Duration(seconds: 1));
   await tester.pumpAndSettle();
+  expect(find.byType(LoginView), findsOneWidget);
+  if (signIn) await tap(tester, 'Masuk dalam mode demo');
 }
 
 Future<void> tap(WidgetTester tester, String label) async {
@@ -62,16 +75,18 @@ void main() {
     tester,
   ) async {
     final store = KoiniStore(MemoryStorage());
-    await start(tester, store);
-    await tap(tester, 'Mulai');
-    await tap(tester, 'Masuk dalam mode demo');
+    await start(tester, store, signIn: false);
+    await tap(tester, 'Belum punya akun? Daftar');
+    expect(find.byType(SignUpView), findsOneWidget);
+    await tap(tester, 'Daftar dalam mode demo');
+    await tap(tester, 'Lanjut');
     expect(
       find.text('Centang persetujuan orang tua untuk melanjutkan.'),
       findsOneWidget,
     );
     await tester.tap(find.byType(CheckboxListTile));
     await tester.pumpAndSettle();
-    await tap(tester, 'Masuk dalam mode demo');
+    await tap(tester, 'Lanjut');
     await tester.enterText(find.byType(TextField).first, 'Raka');
     await tap(tester, 'Simpan profil');
     for (final digit in '123456123456'.split('')) {
@@ -133,6 +148,76 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
+  testWidgets('cold launch and sign-out keep local data behind demo login', (
+    tester,
+  ) async {
+    final storage = MemoryStorage();
+    final store = KoiniStore(storage);
+    await createProfile(store);
+    await store.receiveAllowance();
+    await store.record(kind: EntryKind.spend, amount: 5000, note: 'Roti');
+
+    await start(tester, store);
+    expect(find.text('Total tiga toples Rp95.000'), findsOneWidget);
+    await tap(tester, 'Profil');
+    final logout = find.text('Keluar dari mode demo');
+    await tester.ensureVisible(logout);
+    await tap(tester, 'Keluar dari mode demo');
+    expect(find.byType(LoginView), findsOneWidget);
+    expect(store.total, 95000);
+
+    await tap(tester, 'Masuk dalam mode demo');
+    expect(find.text('Hai, Raka!'), findsOneWidget);
+    await tester.pumpWidget(const SizedBox());
+    final reopened = KoiniStore(storage);
+    await start(tester, reopened, signIn: false);
+    expect(find.text('Hai, Raka!'), findsNothing);
+    await tap(tester, 'Masuk dalam mode demo');
+    expect(find.text('Total tiga toples Rp95.000'), findsOneWidget);
+    expect(reopened.entries.first.note, 'Roti');
+    expect(reopened.checkPin('123456'), isNull);
+  });
+
+  testWidgets('router guards parent deep links before PIN and after Back', (
+    tester,
+  ) async {
+    final store = KoiniStore(MemoryStorage());
+    await createProfile(store);
+    await start(tester, store, signIn: false);
+    final router = GoRouter.of(tester.element(find.byType(LoginView)));
+    router.go('/orang-tua/setelan');
+    await tester.pumpAndSettle();
+    expect(find.byType(LoginView), findsOneWidget);
+
+    await tap(tester, 'Masuk dalam mode demo');
+    for (final path in [
+      '/orang-tua',
+      '/orang-tua/setelan',
+      '/orang-tua/perkembangan',
+    ]) {
+      router.go(path);
+      await tester.pumpAndSettle();
+      expect(find.text('Hai, Raka!'), findsOneWidget);
+      expect(find.byType(ParentDashboardView), findsNothing);
+      expect(find.byType(ParentSettingsView), findsNothing);
+      expect(find.byType(ParentReportView), findsNothing);
+    }
+    await tap(tester, 'Atur');
+    await pin(tester, '123456');
+    expect(find.byType(ParentDashboardView), findsOneWidget);
+    await tap(tester, 'Detail perkembangan');
+    expect(find.byType(ParentReportView), findsOneWidget);
+    await tester.binding.handlePopRoute();
+    await tester.pumpAndSettle();
+    expect(find.byType(ParentDashboardView), findsOneWidget);
+    await tester.binding.handlePopRoute();
+    await tester.pumpAndSettle();
+    router.go('/orang-tua/setelan');
+    await tester.pumpAndSettle();
+    expect(find.text('Hai, Raka!'), findsOneWidget);
+    expect(find.byType(ParentSettingsView), findsNothing);
+  });
+
   testWidgets('quiz feedback advances five questions and awards stars', (
     tester,
   ) async {
@@ -178,6 +263,8 @@ void main() {
     addTearDown(() => tester.binding.setSurfaceSize(null));
 
     final screens = <Widget>[
+      const LoginView(),
+      const SignUpView(),
       JarDetailView(store: store, jar: Jar.tabung),
       WeeklySummaryView(store: store),
       AddTransactionView(store: store, kind: EntryKind.save, dream: dream),
@@ -204,7 +291,10 @@ void main() {
     for (var i = 0; i < screens.length; i++) {
       final screen = screens[i];
       await tester.pumpWidget(
-        MaterialApp(key: ValueKey(i), theme: koiniTheme(), home: screen),
+        ProviderScope(
+          key: ValueKey(i),
+          child: MaterialApp(theme: koiniTheme(), home: screen),
+        ),
       );
       await tester.pumpAndSettle();
       expect(tester.takeException(), isNull, reason: '${screen.runtimeType}');

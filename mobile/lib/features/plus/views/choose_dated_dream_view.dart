@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/widget_previews.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_riverpod/legacy.dart';
 import 'package:koini/app/app_router.dart';
 import 'package:koini/core/widgets/koini_ui.dart';
 import 'package:koini/features/dreams/viewmodels/dreams_viewmodel.dart';
@@ -10,29 +12,32 @@ import 'package:koini/previews/preview_data.dart';
 import 'package:koini/previews/preview_host.dart';
 import 'package:koini/services/koini_store.dart';
 
-class ChooseDatedDreamView extends StatefulWidget {
+final _viewModelProvider = ChangeNotifierProvider.autoDispose
+    .family<DreamsViewModel, ChooseDatedDreamView>(
+      (ref, view) => DreamsViewModel(view.store),
+    );
+
+class ChooseDatedDreamView extends ConsumerStatefulWidget {
   const ChooseDatedDreamView({super.key, required this.store});
   final KoiniStore store;
 
   @override
-  State<ChooseDatedDreamView> createState() => _ChooseDatedDreamViewState();
+  ConsumerState<ChooseDatedDreamView> createState() =>
+      _ChooseDatedDreamViewState();
 }
 
-class _ChooseDatedDreamViewState extends State<ChooseDatedDreamView> {
+class _ChooseDatedDreamViewState extends ConsumerState<ChooseDatedDreamView> {
   KoiniStore get store => widget.store;
-  late final model = DreamsViewModel(store);
+  late final _provider = _viewModelProvider(widget);
+  DreamsViewModel get model => ref.read(_provider);
 
   @override
-  void dispose() {
-    model.dispose();
-    super.dispose();
+  Widget build(BuildContext context) {
+    ref.watch(_provider);
+    return buildPage(context);
   }
 
-  @override
-  Widget build(BuildContext context) =>
-      ListenableBuilder(listenable: model, builder: buildPage);
-
-  Widget buildPage(BuildContext context, Widget? child) {
+  Widget buildPage(BuildContext context) {
     final dreams = model.activeDreams;
     return KPage(
       title: 'Target bertanggal',

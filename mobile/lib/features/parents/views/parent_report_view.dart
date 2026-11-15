@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/widget_previews.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_riverpod/legacy.dart';
 import 'package:koini/core/theme/koini_theme.dart';
 import 'package:koini/core/widgets/koini_ui.dart';
 import 'package:koini/features/parents/viewmodels/parent_overview_viewmodel.dart';
@@ -12,7 +14,12 @@ import 'package:koini/previews/preview_data.dart';
 import 'package:koini/previews/preview_host.dart';
 import 'package:koini/services/koini_store.dart';
 
-class ParentReportView extends StatefulWidget {
+final _viewModelProvider = ChangeNotifierProvider.autoDispose
+    .family<ParentOverviewViewModel, ParentReportView>(
+      (ref, view) => ParentOverviewViewModel(view.store, monthly: view.monthly),
+    );
+
+class ParentReportView extends ConsumerStatefulWidget {
   const ParentReportView({
     super.key,
     required this.store,
@@ -22,24 +29,21 @@ class ParentReportView extends StatefulWidget {
   final bool monthly;
 
   @override
-  State<ParentReportView> createState() => _ParentReportViewState();
+  ConsumerState<ParentReportView> createState() => _ParentReportViewState();
 }
 
-class _ParentReportViewState extends State<ParentReportView> {
+class _ParentReportViewState extends ConsumerState<ParentReportView> {
   KoiniStore get store => widget.store;
-  late final model = ParentOverviewViewModel(store, monthly: widget.monthly);
+  late final _provider = _viewModelProvider(widget);
+  ParentOverviewViewModel get model => ref.read(_provider);
 
   @override
-  void dispose() {
-    model.dispose();
-    super.dispose();
+  Widget build(BuildContext context) {
+    ref.watch(_provider);
+    return buildPage(context);
   }
 
-  @override
-  Widget build(BuildContext context) =>
-      ListenableBuilder(listenable: model, builder: buildPage);
-
-  Widget buildPage(BuildContext context, Widget? child) {
+  Widget buildPage(BuildContext context) {
     final monthly = widget.monthly;
     final period = model.entries;
     final periodLabel = monthly ? 'Bulan ini' : 'Minggu ini';

@@ -1,38 +1,52 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/widget_previews.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_riverpod/legacy.dart';
 import 'package:koini/app/app_router.dart';
 import 'package:koini/app/child_shell.dart';
 import 'package:koini/core/theme/koini_theme.dart';
 import 'package:koini/core/widgets/koini_ui.dart';
 import 'package:koini/features/plus/viewmodels/smart_plan_viewmodel.dart';
-import 'package:koini/features/plus/views/smart_plan_result_view.dart';
 import 'package:koini/models/koini_data.dart';
 import 'package:koini/previews/preview_data.dart';
 import 'package:koini/previews/preview_host.dart';
 import 'package:koini/services/koini_store.dart';
 
-class SmartPlanView extends StatefulWidget {
+final _viewModelProvider = ChangeNotifierProvider.autoDispose
+    .family<SmartPlanViewModel, SmartPlanView>(
+      (ref, view) => SmartPlanViewModel(view.store, view.dream),
+    );
+
+class SmartPlanView extends ConsumerStatefulWidget {
   const SmartPlanView({super.key, required this.store, this.dream});
   final KoiniStore store;
   final Dream? dream;
 
   @override
-  State<SmartPlanView> createState() => _SmartPlanViewState();
+  ConsumerState<SmartPlanView> createState() => _SmartPlanViewState();
 }
 
-class _SmartPlanViewState extends State<SmartPlanView> {
-  late final form = SmartPlanViewModel(widget.store, widget.dream);
+class _SmartPlanViewState extends ConsumerState<SmartPlanView> {
+  late final _provider = _viewModelProvider(widget);
+  SmartPlanViewModel get form => ref.read(_provider);
 
-  late final targetField = TextEditingController(text: form.targetText);
-  late final savedField = TextEditingController(text: form.savedText);
-  late final weeklyField = TextEditingController(text: form.weekly.toString());
+  late final TextEditingController targetField;
+  late final TextEditingController savedField;
+  late final TextEditingController weeklyField;
+
+  @override
+  void initState() {
+    super.initState();
+    targetField = TextEditingController(text: form.targetText);
+    savedField = TextEditingController(text: form.savedText);
+    weeklyField = TextEditingController(text: form.weekly.toString());
+  }
 
   @override
   void dispose() {
     targetField.dispose();
     savedField.dispose();
     weeklyField.dispose();
-    form.dispose();
     super.dispose();
   }
 
@@ -47,15 +61,18 @@ class _SmartPlanViewState extends State<SmartPlanView> {
     }
     await openPage<void>(
       context,
-      SmartPlanResultView(store: widget.store, dream: widget.dream, plan: plan),
+      KRoute.smartPlanResult,
+      extra: (dream: widget.dream, plan: plan),
     );
   }
 
   @override
-  Widget build(BuildContext context) =>
-      ListenableBuilder(listenable: form, builder: buildPage);
+  Widget build(BuildContext context) {
+    ref.watch(_provider);
+    return buildPage(context);
+  }
 
-  Widget buildPage(BuildContext context, Widget? child) => form.busy
+  Widget buildPage(BuildContext context) => form.busy
       ? KPage(
           back: false,
           children: [

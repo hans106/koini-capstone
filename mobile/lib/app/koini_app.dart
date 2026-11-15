@@ -1,71 +1,36 @@
 import 'package:flutter/material.dart';
-import 'package:koini/app/child_shell.dart';
-import 'package:koini/app/launch_viewmodel.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:koini/app/app_router.dart';
+import 'package:koini/core/providers/app_providers.dart';
 import 'package:koini/core/theme/koini_theme.dart';
-import 'package:koini/core/widgets/koini_ui.dart';
-import 'package:koini/features/onboarding/views/splash_view.dart';
-import 'package:koini/features/onboarding/views/welcome_view.dart';
+import 'package:koini/services/auth_service.dart';
 import 'package:koini/services/koini_store.dart';
 
 class KoiniApp extends StatelessWidget {
-  const KoiniApp({super.key, required this.store});
+  const KoiniApp({super.key, required this.store, this.authService});
+
   final KoiniStore store;
+  final AuthService? authService;
 
   @override
-  Widget build(BuildContext context) => MaterialApp(
-    title: 'Koini',
-    debugShowCheckedModeBanner: false,
-    theme: koiniTheme(),
-    home: _Launch(store: store),
+  Widget build(BuildContext context) => ProviderScope(
+    overrides: [
+      koiniStoreProvider.overrideWithValue(store),
+      if (authService case final service?)
+        authServiceProvider.overrideWithValue(service),
+    ],
+    child: const _App(),
   );
 }
 
-class _Launch extends StatefulWidget {
-  const _Launch({required this.store});
-  final KoiniStore store;
+class _App extends ConsumerWidget {
+  const _App();
 
   @override
-  State<_Launch> createState() => _LaunchState();
-}
-
-class _LaunchState extends State<_Launch> {
-  late final model = LaunchViewModel(widget.store);
-
-  @override
-  void initState() {
-    super.initState();
-    model.load();
-  }
-
-  @override
-  void dispose() {
-    model.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) => ListenableBuilder(
-    listenable: model,
-    builder: (context, _) {
-      if (model.status == LaunchStatus.failed) {
-        return KPage(
-          title: 'Koini',
-          back: false,
-          footer: KButton('Coba lagi', onTap: model.load),
-          children: [
-            const KCallout(
-              'Data belum bisa dibuka',
-              'Coba buka kembali penyimpanan di HP ini.',
-            ),
-          ],
-        );
-      }
-      if (model.status == LaunchStatus.loading) {
-        return const SplashView();
-      }
-      return model.status == LaunchStatus.childArea
-          ? ChildShell(store: widget.store)
-          : WelcomeView(store: widget.store);
-    },
+  Widget build(BuildContext context, WidgetRef ref) => MaterialApp.router(
+    title: 'Koini',
+    debugShowCheckedModeBanner: false,
+    theme: koiniTheme(),
+    routerConfig: ref.watch(routerProvider),
   );
 }

@@ -1,20 +1,27 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/widget_previews.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_riverpod/legacy.dart';
 import 'package:koini/core/widgets/koini_ui.dart';
 import 'package:koini/features/parents/viewmodels/change_pin_viewmodel.dart';
 import 'package:koini/features/parents/views/parent_dashboard_view.dart';
 import 'package:koini/previews/preview_host.dart';
 import 'package:koini/services/koini_store.dart';
 
-class ChangePinView extends StatefulWidget {
+final _viewModelProvider = ChangeNotifierProvider.autoDispose
+    .family<ChangePinViewModel, ChangePinView>(
+      (ref, view) => ChangePinViewModel(view.store),
+    );
+
+class ChangePinView extends ConsumerStatefulWidget {
   const ChangePinView({super.key, required this.store});
   final KoiniStore store;
 
   @override
-  State<ChangePinView> createState() => _ChangePinViewState();
+  ConsumerState<ChangePinView> createState() => _ChangePinViewState();
 }
 
-class _ChangePinViewState extends State<ChangePinView> {
+class _ChangePinViewState extends ConsumerState<ChangePinView> {
   final current = TextEditingController();
   final next = TextEditingController();
   final confirm = TextEditingController();
@@ -24,17 +31,19 @@ class _ChangePinViewState extends State<ChangePinView> {
     current.dispose();
     next.dispose();
     confirm.dispose();
-    model.dispose();
     super.dispose();
   }
 
-  late final model = ChangePinViewModel(widget.store);
+  late final _provider = _viewModelProvider(widget);
+  ChangePinViewModel get model => ref.read(_provider);
 
   @override
-  Widget build(BuildContext context) =>
-      ListenableBuilder(listenable: model, builder: buildPage);
+  Widget build(BuildContext context) {
+    ref.watch(_provider);
+    return buildPage(context);
+  }
 
-  Widget buildPage(BuildContext context, Widget? child) => KPage(
+  Widget buildPage(BuildContext context) => KPage(
     title: 'Ganti PIN',
     footer: KButton(
       'Simpan PIN',

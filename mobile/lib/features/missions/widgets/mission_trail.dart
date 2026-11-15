@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:koini/app/app_router.dart';
 import 'package:koini/core/theme/koini_theme.dart';
 import 'package:koini/core/widgets/koini_ui.dart';
-import 'package:koini/features/missions/views/mission_quiz_view.dart';
 import 'package:koini/models/mission.dart';
 import 'package:koini/services/koini_store.dart';
 
@@ -73,7 +72,8 @@ class MissionStop extends StatelessWidget {
             )
           : () => openPage(
               context,
-              MissionQuizView(store: store, mission: mission),
+              KRoute.quiz,
+              pathParameters: {'id': mission.id},
             ),
       child: Row(
         children: [

@@ -1,39 +1,42 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/widget_previews.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_riverpod/legacy.dart';
 import 'package:koini/app/app_router.dart';
 import 'package:koini/app/child_shell.dart';
 import 'package:koini/core/widgets/koini_ui.dart';
 import 'package:koini/features/missions/viewmodels/mission_map_viewmodel.dart';
-import 'package:koini/features/missions/views/mission_quiz_view.dart';
 import 'package:koini/features/missions/widgets/mission_trail.dart';
 import 'package:koini/previews/preview_data.dart';
 import 'package:koini/previews/preview_host.dart';
 import 'package:koini/services/koini_store.dart';
 
-class MissionMapView extends StatefulWidget {
+final _viewModelProvider = ChangeNotifierProvider.autoDispose
+    .family<MissionMapViewModel, MissionMapView>(
+      (ref, view) => MissionMapViewModel(view.store),
+    );
+
+class MissionMapView extends ConsumerStatefulWidget {
   const MissionMapView({super.key, required this.store, required this.onStory});
   final KoiniStore store;
   final VoidCallback onStory;
 
   @override
-  State<MissionMapView> createState() => _MissionMapViewState();
+  ConsumerState<MissionMapView> createState() => _MissionMapViewState();
 }
 
-class _MissionMapViewState extends State<MissionMapView> {
+class _MissionMapViewState extends ConsumerState<MissionMapView> {
   KoiniStore get store => widget.store;
-  late final model = MissionMapViewModel(store);
+  late final _provider = _viewModelProvider(widget);
+  MissionMapViewModel get model => ref.read(_provider);
 
   @override
-  void dispose() {
-    model.dispose();
-    super.dispose();
+  Widget build(BuildContext context) {
+    ref.watch(_provider);
+    return buildPage(context);
   }
 
-  @override
-  Widget build(BuildContext context) =>
-      ListenableBuilder(listenable: model, builder: buildPage);
-
-  Widget buildPage(BuildContext context, Widget? child) {
+  Widget buildPage(BuildContext context) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
@@ -69,7 +72,8 @@ class _MissionMapViewState extends State<MissionMapView> {
           'Main misi',
           onTap: () => openPage(
             context,
-            MissionQuizView(store: store, mission: model.next),
+            KRoute.quiz,
+            pathParameters: {'id': model.next.id},
           ),
         ),
         const Gap(9),

@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/widget_previews.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_riverpod/legacy.dart';
 import 'package:koini/core/widgets/koini_ui.dart';
 import 'package:koini/features/parents/views/parent_dashboard_view.dart';
 import 'package:koini/features/plus/viewmodels/gift_viewmodel.dart';
@@ -8,31 +10,38 @@ import 'package:koini/previews/preview_data.dart';
 import 'package:koini/previews/preview_host.dart';
 import 'package:koini/services/koini_store.dart';
 
-class GiftReleaseView extends StatefulWidget {
+final _viewModelProvider = ChangeNotifierProvider.autoDispose
+    .family<GiftReleaseViewModel, GiftReleaseView>(
+      (ref, view) => GiftReleaseViewModel(view.store),
+    );
+
+class GiftReleaseView extends ConsumerStatefulWidget {
   const GiftReleaseView({super.key, required this.store});
   final KoiniStore store;
 
   @override
-  State<GiftReleaseView> createState() => _GiftReleaseViewState();
+  ConsumerState<GiftReleaseView> createState() => _GiftReleaseViewState();
 }
 
-class _GiftReleaseViewState extends State<GiftReleaseView> {
+class _GiftReleaseViewState extends ConsumerState<GiftReleaseView> {
   final amount = TextEditingController();
 
   @override
   void dispose() {
     amount.dispose();
-    model.dispose();
     super.dispose();
   }
 
-  late final model = GiftReleaseViewModel(widget.store);
+  late final _provider = _viewModelProvider(widget);
+  GiftReleaseViewModel get model => ref.read(_provider);
 
   @override
-  Widget build(BuildContext context) =>
-      ListenableBuilder(listenable: model, builder: buildPage);
+  Widget build(BuildContext context) {
+    ref.watch(_provider);
+    return buildPage(context);
+  }
 
-  Widget buildPage(BuildContext context, Widget? child) => KPage(
+  Widget buildPage(BuildContext context) => KPage(
     title: 'Kembalikan uang titipan',
     footer: KButton(
       'Catat pengembalian',

@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
+import 'package:koini/features/auth/views/login_view.dart';
+import 'package:koini/features/auth/views/sign_up_view.dart';
 import 'package:koini/features/dreams/views/create_dream_view.dart';
 import 'package:koini/features/dreams/views/dream_detail_view.dart';
 import 'package:koini/features/dreams/views/dream_list_view.dart';
@@ -43,6 +45,8 @@ import 'package:koini/previews/preview_data.dart';
 import 'package:koini/previews/preview_host.dart';
 
 const allPreviews = <String, Widget Function()>{
+  'loginPreview': loginPreview,
+  'signUpPreview': signUpPreview,
   'createDreamPreview': createDreamPreview,
   'dreamDetailPreview': dreamDetailPreview,
   'dreamListPreview': dreamListPreview,
@@ -138,6 +142,22 @@ void main() {
       );
       expect(a.balance(Jar.jajan), 55000);
       expect(b.balance(Jar.jajan), 45000);
+    },
+  );
+
+  testWidgets(
+    'account entry previews open onboarding with separate demo sessions',
+    (tester) async {
+      await mount(tester, loginPreview);
+      await press(tester, 'Masuk dalam mode demo');
+      expect(find.byType(CheckboxListTile), findsOneWidget);
+
+      await tester.pumpWidget(const SizedBox());
+      await mount(tester, signUpPreview);
+      expect(find.text('Daftar dalam mode demo'), findsOneWidget);
+      await press(tester, 'Daftar dalam mode demo');
+      expect(find.byType(CheckboxListTile), findsOneWidget);
+      expect(tester.takeException(), isNull);
     },
   );
 

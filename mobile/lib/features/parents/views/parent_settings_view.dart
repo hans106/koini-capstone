@@ -1,37 +1,34 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/widget_previews.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_riverpod/legacy.dart';
 import 'package:koini/app/app_router.dart';
 import 'package:koini/core/widgets/koini_ui.dart';
 import 'package:koini/features/parents/viewmodels/parent_settings_viewmodel.dart';
-import 'package:koini/features/parents/views/allowance_settings_view.dart';
-import 'package:koini/features/parents/views/change_pin_view.dart';
-import 'package:koini/features/parents/views/email_preview_view.dart';
 import 'package:koini/features/parents/views/parent_dashboard_view.dart';
 import 'package:koini/features/parents/widgets/rating_sheet.dart';
-import 'package:koini/features/plus/views/gift_season_view.dart';
-import 'package:koini/features/transactions/views/add_transaction_view.dart';
 import 'package:koini/models/koini_data.dart';
 import 'package:koini/previews/preview_data.dart';
 import 'package:koini/previews/preview_host.dart';
 import 'package:koini/services/koini_store.dart';
 
-class ParentSettingsView extends StatefulWidget {
+final _viewModelProvider = ChangeNotifierProvider.autoDispose
+    .family<ParentSettingsViewModel, ParentSettingsView>(
+      (ref, view) => ParentSettingsViewModel(view.store),
+    );
+
+class ParentSettingsView extends ConsumerStatefulWidget {
   const ParentSettingsView({super.key, required this.store});
   final KoiniStore store;
 
   @override
-  State<ParentSettingsView> createState() => _ParentSettingsViewState();
+  ConsumerState<ParentSettingsView> createState() => _ParentSettingsViewState();
 }
 
-class _ParentSettingsViewState extends State<ParentSettingsView> {
+class _ParentSettingsViewState extends ConsumerState<ParentSettingsView> {
   KoiniStore get store => widget.store;
-  late final form = ParentSettingsViewModel(store);
-
-  @override
-  void dispose() {
-    form.dispose();
-    super.dispose();
-  }
+  late final _provider = _viewModelProvider(widget);
+  ParentSettingsViewModel get form => ref.read(_provider);
 
   Future<void> save() async {
     if (form.busy) return;
@@ -41,9 +38,9 @@ class _ParentSettingsViewState extends State<ParentSettingsView> {
   }
 
   @override
-  Widget build(BuildContext context) => ListenableBuilder(
-    listenable: form,
-    builder: (context, _) => KPage(
+  Widget build(BuildContext context) {
+    ref.watch(_provider);
+    return KPage(
       title: 'Setelan orang tua',
       subtitle: 'Dikelola oleh Ayah/Bunda',
       footer: KButton('Simpan setelan', onTap: form.busy ? null : save),
@@ -51,7 +48,7 @@ class _ParentSettingsViewState extends State<ParentSettingsView> {
         KRow(
           'Uang saku',
           '${rupiah(form.allowance)} per minggu Â· Batas ${rupiah(form.dailyLimit)} per hari',
-          onTap: () => openPage(context, AllowanceSettingsView(store: store)),
+          onTap: () => openPage(context, KRoute.allowance),
         ),
         const Gap(8),
         KCard(
@@ -79,8 +76,7 @@ class _ParentSettingsViewState extends State<ParentSettingsView> {
                     KButton(
                       'Lihat contoh',
                       small: true,
-                      onTap: () =>
-                          openPage(context, EmailPreviewView(store: store)),
+                      onTap: () => openPage(context, KRoute.weeklyEmail),
                     ),
                   ],
                 ),
@@ -106,7 +102,7 @@ class _ParentSettingsViewState extends State<ParentSettingsView> {
                 plusGate(
                   context,
                   yearly: false,
-                  parentAccess: () => showPlus(context, store),
+                  parentAccess: () => showPlus(context),
                 );
               } else {
                 form.setStories(value);
@@ -118,11 +114,8 @@ class _ParentSettingsViewState extends State<ParentSettingsView> {
         KRow(
           'Musim uang hadiah',
           'THR, angpao, dan hadiah Â· Tahunan',
-          onTap: () => openYearly(
-            context,
-            store,
-            () => openPage(context, GiftSeasonView(store: store)),
-          ),
+          onTap: () =>
+              openYearly(context, store, () => openPage(context, KRoute.gifts)),
         ),
         const Gap(7),
         KRow(
@@ -131,8 +124,7 @@ class _ParentSettingsViewState extends State<ParentSettingsView> {
           onTap: () => openYearly(
             context,
             store,
-            () =>
-                openPage(context, EmailPreviewView(store: store, alert: true)),
+            () => openPage(context, KRoute.alertEmail),
           ),
         ),
         const Gap(7),
@@ -141,20 +133,26 @@ class _ParentSettingsViewState extends State<ParentSettingsView> {
           'Catat uang bonus yang sudah diberikan',
           onTap: () => openPage(
             context,
-            AddTransactionView(store: store, kind: EntryKind.bonus),
+            KRoute.transaction,
+            extra: (
+              kind: EntryKind.bonus,
+              dream: null,
+              source: null,
+              destination: null,
+            ),
           ),
         ),
         const Gap(7),
         KRow(
           'Ganti PIN',
           'PIN orang tua 6 digit',
-          onTap: () => openPage(context, ChangePinView(store: store)),
+          onTap: () => openPage(context, KRoute.changePin),
         ),
         const Gap(7),
         KRow(
           'Koini Plus',
           'Kelola pilihan pendampingan',
-          onTap: () => showPlus(context, store),
+          onTap: () => showPlus(context),
         ),
         const Gap(7),
         KRow(
@@ -165,8 +163,8 @@ class _ParentSettingsViewState extends State<ParentSettingsView> {
           onTap: () => rate(context, store),
         ),
       ],
-    ),
-  );
+    );
+  }
 }
 
 @Preview(name: 'Setelan orang tua', group: 'Orang tua', size: koiniPreviewSize)

@@ -16,11 +16,11 @@ class ParentLoginView {
     const Align(alignment: Alignment.centerRight, child: Mascot(size: 96)),
     heading('Untuk Ayah/Bunda', size: 28),
     const Gap(6),
-    const Text('Masuk untuk mengawasi Koini.'),
+    const Text('Siapkan pengawasan Koini di HP ini.'),
     const Gap(13),
     const KCard(
       child: Text(
-        'Gunakan akses demo lokal untuk mencoba pengaturan awal. '
+        'Berikan persetujuan untuk melanjutkan pengaturan awal. '
         'Setelahnya, area orang tua dibuka dengan PIN 6 digit.',
       ),
     ),

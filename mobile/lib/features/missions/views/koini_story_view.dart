@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/widget_previews.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_riverpod/legacy.dart';
 import 'package:koini/app/app_router.dart';
 import 'package:koini/app/child_shell.dart';
 import 'package:koini/core/theme/koini_theme.dart';
@@ -9,7 +11,12 @@ import 'package:koini/previews/preview_data.dart';
 import 'package:koini/previews/preview_host.dart';
 import 'package:koini/services/koini_store.dart';
 
-class KoiniStoryView extends StatefulWidget {
+final _viewModelProvider = ChangeNotifierProvider.autoDispose
+    .family<KoiniStoryViewModel, KoiniStoryView>(
+      (ref, view) => KoiniStoryViewModel(view.store),
+    );
+
+class KoiniStoryView extends ConsumerStatefulWidget {
   const KoiniStoryView({
     super.key,
     required this.store,
@@ -19,70 +26,57 @@ class KoiniStoryView extends StatefulWidget {
   final VoidCallback parentAccess;
 
   @override
-  State<KoiniStoryView> createState() => _KoiniStoryViewState();
+  ConsumerState<KoiniStoryView> createState() => _KoiniStoryViewState();
 }
 
-class _KoiniStoryViewState extends State<KoiniStoryView> {
-  late final model = KoiniStoryViewModel(widget.store);
+class _KoiniStoryViewState extends ConsumerState<KoiniStoryView> {
+  late final _provider = _viewModelProvider(widget);
+  KoiniStoryViewModel get model => ref.read(_provider);
 
   @override
-  void dispose() {
-    model.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) => ListenableBuilder(
-    listenable: model,
-    builder: (context, _) {
-      final permitted = model.permitted;
-      const topics = KoiniStoryViewModel.topics;
-      return KPage(
-        title: 'Cerita dengan Koini',
-        subtitle: 'Pilih topik, belajar bersama',
-        footer: KButton(
-          permitted ? 'Baca cerita' : 'Ajak Ayah/Bunda',
-          onTap: () {
-            if (permitted) {
-              model.reveal();
-            } else if (!model.hasPlus) {
-              plusGate(
-                context,
-                yearly: false,
-                parentAccess: widget.parentAccess,
-              );
-            } else {
-              widget.parentAccess();
-            }
-          },
-        ),
-        children: [
-          KCallout('Koini', model.message),
-          const Gap(),
-          heading('Topik cerita', size: 19),
+  Widget build(BuildContext context) {
+    ref.watch(_provider);
+    final permitted = model.permitted;
+    const topics = KoiniStoryViewModel.topics;
+    return KPage(
+      title: 'Cerita dengan Koini',
+      subtitle: 'Pilih topik, belajar bersama',
+      footer: KButton(
+        permitted ? 'Baca cerita' : 'Ajak Ayah/Bunda',
+        onTap: () {
+          if (permitted) {
+            model.reveal();
+          } else if (!model.hasPlus) {
+            plusGate(context, yearly: false, parentAccess: widget.parentAccess);
+          } else {
+            widget.parentAccess();
+          }
+        },
+      ),
+      children: [
+        KCallout('Koini', model.message),
+        const Gap(),
+        heading('Topik cerita', size: 19),
+        const Gap(7),
+        for (var i = 0; i < topics.length; i++) ...[
+          KRow(
+            topics[i].$1,
+            topics[i].$2,
+            color: model.current == i ? KColors.gold : null,
+            onTap: () => model.select(i),
+          ),
           const Gap(7),
-          for (var i = 0; i < topics.length; i++) ...[
-            KRow(
-              topics[i].$1,
-              topics[i].$2,
-              color: model.current == i ? KColors.gold : null,
-              onTap: () => model.select(i),
-            ),
-            const Gap(7),
-          ],
-          caption('Cerita dalam mode demo mengikuti topik pilihanmu.'),
         ],
-      );
-    },
-  );
+        caption('Cerita dalam mode demo mengikuti topik pilihanmu.'),
+      ],
+    );
+  }
 }
 
 @Preview(name: 'Cerita dengan Koini', group: 'Misi', size: koiniPreviewSize)
 Widget storyPreview() => KoiniPreviewHost(
-  page: (context, store) => KoiniStoryView(
-    store: store,
-    parentAccess: () => openParentArea(context, store),
-  ),
+  page: (context, store) =>
+      KoiniStoryView(store: store, parentAccess: () => openParentArea(context)),
   scenario: PreviewScenario.plus,
   returnPage: (context, store) =>
       ChildShell(store: store, initialTab: ChildTab.missions),

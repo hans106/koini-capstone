@@ -3,7 +3,6 @@ import 'package:flutter/widget_previews.dart';
 import 'package:koini/app/app_router.dart';
 import 'package:koini/core/theme/koini_theme.dart';
 import 'package:koini/core/widgets/koini_ui.dart';
-import 'package:koini/features/onboarding/views/onboarding_flow_view.dart';
 import 'package:koini/previews/preview_data.dart';
 import 'package:koini/previews/preview_host.dart';
 import 'package:koini/services/koini_store.dart';
@@ -15,6 +14,7 @@ class WelcomeView extends StatelessWidget {
   @override
   Widget build(BuildContext context) => KPage(
     back: false,
+    footer: KButton('Mulai', onTap: () => welcomeStart(context)),
     children: [
       const Gap(7),
       const Center(child: Mascot(size: 160, glow: true)),
@@ -64,11 +64,6 @@ class WelcomeView extends StatelessWidget {
       caption(
         'Hanya mencatat · Tanpa uang sungguhan · Tanpa iklan',
         align: TextAlign.center,
-      ),
-      const Gap(32),
-      KButton(
-        'Mulai',
-        onTap: () => openPage(context, OnboardingFlowView(store: store)),
       ),
     ],
   );

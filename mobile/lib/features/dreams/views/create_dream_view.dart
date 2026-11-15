@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/widget_previews.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_riverpod/legacy.dart';
 import 'package:koini/app/app_router.dart';
 import 'package:koini/app/child_shell.dart';
 import 'package:koini/core/theme/koini_theme.dart';
@@ -10,24 +12,29 @@ import 'package:koini/previews/preview_data.dart';
 import 'package:koini/previews/preview_host.dart';
 import 'package:koini/services/koini_store.dart';
 
-class CreateDreamView extends StatefulWidget {
+final _viewModelProvider = ChangeNotifierProvider.autoDispose
+    .family<DreamCreationViewModel, CreateDreamView>(
+      (ref, view) => DreamCreationViewModel(view.store),
+    );
+
+class CreateDreamView extends ConsumerStatefulWidget {
   const CreateDreamView({super.key, required this.store});
   final KoiniStore store;
 
   @override
-  State<CreateDreamView> createState() => _CreateDreamViewState();
+  ConsumerState<CreateDreamView> createState() => _CreateDreamViewState();
 }
 
-class _CreateDreamViewState extends State<CreateDreamView> {
+class _CreateDreamViewState extends ConsumerState<CreateDreamView> {
   final nameField = TextEditingController();
   final targetField = TextEditingController();
-  late final form = DreamCreationViewModel(widget.store);
+  late final _provider = _viewModelProvider(widget);
+  DreamCreationViewModel get form => ref.read(_provider);
 
   @override
   void dispose() {
     nameField.dispose();
     targetField.dispose();
-    form.dispose();
     super.dispose();
   }
 
@@ -42,7 +49,8 @@ class _CreateDreamViewState extends State<CreateDreamView> {
     }
     await openPage<void>(
       context,
-      Celebration(
+      KRoute.celebration,
+      extra: Celebration(
         title: 'Impian tersimpan!',
         message: '${form.dreamName}\nYuk, mulai menabung sedikit demi sedikit.',
         button: 'Selesai',
@@ -52,10 +60,12 @@ class _CreateDreamViewState extends State<CreateDreamView> {
   }
 
   @override
-  Widget build(BuildContext context) =>
-      ListenableBuilder(listenable: form, builder: buildPage);
+  Widget build(BuildContext context) {
+    ref.watch(_provider);
+    return buildPage(context);
+  }
 
-  Widget buildPage(BuildContext context, Widget? child) {
+  Widget buildPage(BuildContext context) {
     final plan = form.plan;
     const labels = ['Buku', 'Sepeda', 'Game', 'Baju', 'Sepatu', 'Bola'];
     return KPage(

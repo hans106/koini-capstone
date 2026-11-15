@@ -1,14 +1,20 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/widget_previews.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_riverpod/legacy.dart';
 import 'package:koini/app/app_router.dart';
 import 'package:koini/app/child_shell.dart';
 import 'package:koini/core/theme/koini_theme.dart';
 import 'package:koini/core/widgets/koini_ui.dart';
 import 'package:koini/features/parents/viewmodels/parent_pin_viewmodel.dart';
-import 'package:koini/features/parents/views/parent_dashboard_view.dart';
 import 'package:koini/previews/preview_host.dart';
 
-class ParentPinView extends StatefulWidget {
+final _viewModelProvider = ChangeNotifierProvider.autoDispose
+    .family<ParentPinViewModel, ParentPinView>(
+      (ref, view) => ParentPinViewModel(view.verify),
+    );
+
+class ParentPinView extends ConsumerStatefulWidget {
   const ParentPinView({
     super.key,
     required this.title,
@@ -27,10 +33,10 @@ class ParentPinView extends StatefulWidget {
   final VoidCallback? onVerified;
 
   @override
-  State<ParentPinView> createState() => _ParentPinViewState();
+  ConsumerState<ParentPinView> createState() => _ParentPinViewState();
 }
 
-class _ParentPinViewState extends State<ParentPinView> {
+class _ParentPinViewState extends ConsumerState<ParentPinView> {
   Future<void> submit() async {
     if (!await model.verify() || !mounted) return;
     if (widget.onVerified case final onVerified?) {
@@ -40,19 +46,16 @@ class _ParentPinViewState extends State<ParentPinView> {
     }
   }
 
-  late final model = ParentPinViewModel(widget.verify);
+  late final _provider = _viewModelProvider(widget);
+  ParentPinViewModel get model => ref.read(_provider);
 
   @override
-  Widget build(BuildContext context) =>
-      ListenableBuilder(listenable: model, builder: buildPage);
-
-  @override
-  void dispose() {
-    model.dispose();
-    super.dispose();
+  Widget build(BuildContext context) {
+    ref.watch(_provider);
+    return buildPage(context);
   }
 
-  Widget buildPage(BuildContext context, Widget? child) => KPage(
+  Widget buildPage(BuildContext context) => KPage(
     title: widget.title,
     footer: KButton(widget.buttonLabel, onTap: model.busy ? null : submit),
     children: [
@@ -102,7 +105,7 @@ Widget parentPinPreview() => KoiniPreviewHost(
     prompt: 'Masukkan PIN 6 digit untuk membuka pengawasan di HP ini.',
     verify: (pin) async => store.checkPin(pin),
     recovery: true,
-    onVerified: () => openPage(context, ParentDashboardView(store: store)),
+    onVerified: () => openPage(context, KRoute.parentDashboard),
   ),
   returnPage: (_, store) =>
       ChildShell(store: store, initialTab: ChildTab.profile),

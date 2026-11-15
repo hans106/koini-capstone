@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/widget_previews.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_riverpod/legacy.dart';
 import 'package:koini/app/app_router.dart';
 import 'package:koini/app/child_shell.dart';
 import 'package:koini/core/theme/koini_theme.dart';
@@ -10,7 +12,18 @@ import 'package:koini/previews/preview_data.dart';
 import 'package:koini/previews/preview_host.dart';
 import 'package:koini/services/koini_store.dart';
 
-class AddTransactionView extends StatefulWidget {
+final _viewModelProvider = ChangeNotifierProvider.autoDispose
+    .family<TransactionViewModel, AddTransactionView>(
+      (ref, view) => TransactionViewModel(
+        view.store,
+        kind: view.kind,
+        dream: view.dream,
+        destination: view.destination,
+        source: view.source,
+      ),
+    );
+
+class AddTransactionView extends ConsumerStatefulWidget {
   const AddTransactionView({
     super.key,
     required this.store,
@@ -26,18 +39,13 @@ class AddTransactionView extends StatefulWidget {
   final Jar? source;
 
   @override
-  State<AddTransactionView> createState() => _AddTransactionViewState();
+  ConsumerState<AddTransactionView> createState() => _AddTransactionViewState();
 }
 
-class _AddTransactionViewState extends State<AddTransactionView> {
+class _AddTransactionViewState extends ConsumerState<AddTransactionView> {
   final memo = TextEditingController();
-  late final form = TransactionViewModel(
-    widget.store,
-    kind: widget.kind,
-    dream: widget.dream,
-    destination: widget.destination,
-    source: widget.source,
-  );
+  late final _provider = _viewModelProvider(widget);
+  TransactionViewModel get form => ref.read(_provider);
   EntryKind get kind => form.kind;
   Dream? get dream => form.dream;
   int get amount => form.amount;
@@ -45,7 +53,6 @@ class _AddTransactionViewState extends State<AddTransactionView> {
   @override
   void dispose() {
     memo.dispose();
-    form.dispose();
     super.dispose();
   }
 
@@ -75,7 +82,8 @@ class _AddTransactionViewState extends State<AddTransactionView> {
     final completed = form.completed;
     await openPage<void>(
       context,
-      Celebration(
+      KRoute.celebration,
+      extra: Celebration(
         header: completed ? 'Impian tercapai' : null,
         title: completed ? 'Hore, kamu berhasil!' : 'Tersimpan!',
         message: completed
@@ -131,10 +139,12 @@ class _AddTransactionViewState extends State<AddTransactionView> {
       );
 
   @override
-  Widget build(BuildContext context) =>
-      ListenableBuilder(listenable: form, builder: buildPage);
+  Widget build(BuildContext context) {
+    ref.watch(_provider);
+    return buildPage(context);
+  }
 
-  Widget buildPage(BuildContext context, Widget? child) {
+  Widget buildPage(BuildContext context) {
     final spending = form.spendingThisWeek;
     final options = [
       EntryKind.spend,

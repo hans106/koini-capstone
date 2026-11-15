@@ -1,6 +1,11 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:koini/app/app_router.dart';
+import 'package:koini/core/providers/app_providers.dart';
 
 import 'package:koini/core/theme/koini_theme.dart';
+import 'package:koini/features/auth/viewmodels/auth_viewmodel.dart';
+import 'package:koini/services/auth_service.dart';
 import 'package:koini/services/koini_store.dart';
 
 import 'preview_data.dart';
@@ -71,25 +76,32 @@ class _KoiniPreviewHostState extends State<KoiniPreviewHost> {
       }
 
       // A Navigator inside the card keeps routes out of the previewer's browser history.
-      return Theme(
-        data: koiniTheme(fontPackage: 'koini'),
-        child: ScaffoldMessenger(
-          child: HeroControllerScope.none(
-            child: Navigator(
-              requestFocus: false,
-              reportsRouteUpdateToEngine: false,
-              onGenerateInitialRoutes: (_, _) => [
-                if (widget.returnPage case final returnPage?)
-                  MaterialPageRoute<void>(
-                    builder: (context) => ListenableBuilder(
-                      listenable: store,
-                      builder: (context, _) => returnPage(context, store),
+      return ProviderScope(
+        overrides: [
+          koiniStoreProvider.overrideWithValue(store),
+          authServiceProvider.overrideWithValue(DemoAuthService()),
+          authViewModelProvider.overrideWith(AuthViewModel.new),
+        ],
+        child: PreviewNavigation(
+          store: store,
+          child: Theme(
+            data: koiniTheme(fontPackage: 'koini'),
+            child: ScaffoldMessenger(
+              child: HeroControllerScope.none(
+                child: Navigator(
+                  requestFocus: false,
+                  reportsRouteUpdateToEngine: false,
+                  onGenerateInitialRoutes: (_, _) => [
+                    if (widget.returnPage case final returnPage?)
+                      MaterialPageRoute<void>(
+                        builder: (context) => returnPage(context, store),
+                      ),
+                    MaterialPageRoute<void>(
+                      builder: (context) => widget.page(context, store),
                     ),
-                  ),
-                MaterialPageRoute<void>(
-                  builder: (context) => widget.page(context, store),
+                  ],
                 ),
-              ],
+              ),
             ),
           ),
         ),

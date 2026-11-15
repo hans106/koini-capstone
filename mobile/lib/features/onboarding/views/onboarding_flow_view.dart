@@ -1,7 +1,10 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_riverpod/legacy.dart';
 import 'package:koini/app/app_router.dart';
 import 'package:koini/core/theme/koini_theme.dart';
 import 'package:koini/core/widgets/koini_ui.dart';
+import 'package:koini/features/auth/viewmodels/auth_viewmodel.dart';
 import 'package:koini/features/onboarding/viewmodels/onboarding_viewmodel.dart';
 import 'package:koini/features/onboarding/views/child_profile_setup_view.dart';
 import 'package:koini/features/onboarding/views/initial_jar_split_view.dart';
@@ -11,7 +14,22 @@ import 'package:koini/features/onboarding/views/ready_to_play_view.dart';
 import 'package:koini/previews/preview_data.dart';
 import 'package:koini/services/koini_store.dart';
 
-class OnboardingFlowView extends StatefulWidget {
+final _viewModelProvider = ChangeNotifierProvider.autoDispose
+    .family<OnboardingViewModel, OnboardingFlowView>(
+      (ref, view) => OnboardingViewModel(
+        view.store,
+        step: view.initialStep,
+        name:
+            view.demo && view.initialStep.index >= OnboardingStep.settings.index
+            ? 'Raka'
+            : '',
+        pin: view.demo && view.initialStep.index >= OnboardingStep.split.index
+            ? previewPin
+            : '',
+      ),
+    );
+
+class OnboardingFlowView extends ConsumerStatefulWidget {
   const OnboardingFlowView({
     super.key,
     required this.store,
@@ -23,25 +41,24 @@ class OnboardingFlowView extends StatefulWidget {
   final bool demo;
 
   @override
-  State<OnboardingFlowView> createState() => _OnboardingFlowViewState();
+  ConsumerState<OnboardingFlowView> createState() => _OnboardingFlowViewState();
 }
 
-class _OnboardingFlowViewState extends State<OnboardingFlowView> {
-  late final form = OnboardingViewModel(
-    widget.store,
-    step: widget.initialStep,
-    name:
-        widget.demo && widget.initialStep.index >= OnboardingStep.settings.index
-        ? 'Raka'
-        : '',
-    pin: widget.demo && widget.initialStep.index >= OnboardingStep.split.index
-        ? previewPin
-        : '',
-  );
-  late final name = TextEditingController(text: form.name);
-  late final allowance = TextEditingController(text: form.amount.toString());
-  late final limit = TextEditingController(text: form.dailyLimit.toString());
+class _OnboardingFlowViewState extends ConsumerState<OnboardingFlowView> {
+  late final _provider = _viewModelProvider(widget);
+  OnboardingViewModel get form => ref.read(_provider);
+  late final TextEditingController name;
+  late final TextEditingController allowance;
+  late final TextEditingController limit;
   final email = TextEditingController();
+
+  @override
+  void initState() {
+    super.initState();
+    name = TextEditingController(text: form.name);
+    allowance = TextEditingController(text: form.amount.toString());
+    limit = TextEditingController(text: form.dailyLimit.toString());
+  }
 
   @override
   void dispose() {
@@ -49,12 +66,16 @@ class _OnboardingFlowViewState extends State<OnboardingFlowView> {
     allowance.dispose();
     limit.dispose();
     email.dispose();
-    form.dispose();
     super.dispose();
   }
 
   void back() {
-    if (!form.back()) Navigator.pop(context);
+    if (form.back()) return;
+    if (PreviewNavigation.maybeOf(context) != null) {
+      Navigator.maybePop(context);
+    } else {
+      ref.read(authViewModelProvider.notifier).signOut();
+    }
   }
 
   Future<void> next() async {
@@ -63,27 +84,29 @@ class _OnboardingFlowViewState extends State<OnboardingFlowView> {
   }
 
   @override
-  Widget build(BuildContext context) =>
-      ListenableBuilder(listenable: form, builder: buildPage);
+  Widget build(BuildContext context) {
+    ref.watch(_provider);
+    return buildPage(context);
+  }
 
-  Widget buildPage(BuildContext context, Widget? child) {
+  Widget buildPage(BuildContext context) {
     final step = form.step.index;
     final titles = [
-      'Masuk orang tua',
+      'Persetujuan orang tua',
       'Profil anak',
       'Pengaturan awal',
       'Bagi uang saku',
       'Siap bermain',
     ];
     final actions = [
-      'Masuk dalam mode demo',
+      'Lanjut',
       'Simpan profil',
       'Lanjut bagi uang saku',
       'Simpan rencana',
       'Mulai main',
     ];
     return PopScope(
-      canPop: step == 0,
+      canPop: step == 0 && PreviewNavigation.maybeOf(context) != null,
       onPopInvokedWithResult: (popped, _) {
         if (!popped && !form.busy) back();
       },

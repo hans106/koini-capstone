@@ -1,28 +1,9 @@
-import 'package:koini/core/viewmodels/view_model.dart';
-import 'package:koini/services/koini_store.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:koini/core/providers/app_providers.dart';
 
-enum LaunchStatus { loading, failed, welcome, childArea }
-
-class LaunchViewModel extends ViewModel {
-  LaunchViewModel(this._store);
-  final KoiniStore _store;
-  LaunchStatus _status = LaunchStatus.loading;
-  LaunchStatus get status => _status;
-
-  Future<void> load() async {
-    _status = LaunchStatus.loading;
-    changed();
-    try {
-      await Future.wait([
-        _store.load(),
-        Future<void>.delayed(const Duration(milliseconds: 850)),
-      ]);
-      _status = _store.hasProfile
-          ? LaunchStatus.childArea
-          : LaunchStatus.welcome;
-    } catch (_) {
-      _status = LaunchStatus.failed;
-    }
-    changed();
-  }
-}
+final launchProvider = FutureProvider<void>((ref) async {
+  await Future.wait([
+    ref.watch(koiniStoreProvider).load(),
+    Future<void>.delayed(const Duration(milliseconds: 850)),
+  ]);
+}, retry: (_, _) => null);

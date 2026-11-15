@@ -1,46 +1,42 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/widget_previews.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_riverpod/legacy.dart';
 import 'package:koini/app/app_router.dart';
 import 'package:koini/app/child_shell.dart';
 import 'package:koini/core/theme/koini_theme.dart';
 import 'package:koini/core/widgets/koini_ui.dart';
-import 'package:koini/features/dreams/views/create_dream_view.dart';
-import 'package:koini/features/dreams/views/dream_detail_view.dart';
 import 'package:koini/features/dreams/widgets/dream_image.dart';
 import 'package:koini/features/home/viewmodels/home_viewmodel.dart';
-import 'package:koini/features/home/views/weekly_summary_view.dart';
-import 'package:koini/features/jars/views/jar_detail_view.dart';
-import 'package:koini/features/missions/views/mission_quiz_view.dart';
-import 'package:koini/features/transactions/views/add_transaction_view.dart';
 import 'package:koini/models/koini_data.dart';
 import 'package:koini/previews/preview_data.dart';
 import 'package:koini/previews/preview_host.dart';
 import 'package:koini/services/koini_store.dart';
 
-class HomeView extends StatefulWidget {
+final _viewModelProvider = ChangeNotifierProvider.autoDispose
+    .family<HomeViewModel, HomeView>((ref, view) => HomeViewModel(view.store));
+
+class HomeView extends ConsumerStatefulWidget {
   const HomeView({super.key, required this.store, required this.parentAccess});
   final KoiniStore store;
   final VoidCallback parentAccess;
 
   @override
-  State<HomeView> createState() => _HomeViewState();
+  ConsumerState<HomeView> createState() => _HomeViewState();
 }
 
-class _HomeViewState extends State<HomeView> {
+class _HomeViewState extends ConsumerState<HomeView> {
   KoiniStore get store => widget.store;
-  late final model = HomeViewModel(store);
+  late final _provider = _viewModelProvider(widget);
+  HomeViewModel get model => ref.read(_provider);
 
   @override
-  void dispose() {
-    model.dispose();
-    super.dispose();
+  Widget build(BuildContext context) {
+    ref.watch(_provider);
+    return buildPage(context);
   }
 
-  @override
-  Widget build(BuildContext context) =>
-      ListenableBuilder(listenable: model, builder: buildPage);
-
-  Widget buildPage(BuildContext context, Widget? child) {
+  Widget buildPage(BuildContext context) {
     final dream = model.activeDream;
     final spent = model.spentThisWeek;
     final next = model.nextMission;
@@ -50,14 +46,11 @@ class _HomeViewState extends State<HomeView> {
         KCard(
           bright: true,
           onTap: dream == null
-              ? () => openPage(context, CreateDreamView(store: store))
+              ? () => openPage(context, KRoute.createDream)
               : () => openPage(
                   context,
-                  DreamDetailView(
-                    store: store,
-                    id: dream.id,
-                    parentAccess: widget.parentAccess,
-                  ),
+                  KRoute.dream,
+                  pathParameters: {'id': dream.id},
                 ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -137,8 +130,11 @@ class _HomeViewState extends State<HomeView> {
                   border: KColors.jar(jar),
                   padding: const EdgeInsets.all(9),
                   radius: 19,
-                  onTap: () =>
-                      openPage(context, JarDetailView(store: store, jar: jar)),
+                  onTap: () => openPage(
+                    context,
+                    KRoute.jar,
+                    pathParameters: {'jar': jar.name},
+                  ),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
@@ -220,7 +216,7 @@ class _HomeViewState extends State<HomeView> {
         const Gap(11),
         KCard(
           onTap: () =>
-              openPage(context, MissionQuizView(store: store, mission: next)),
+              openPage(context, KRoute.quiz, pathParameters: {'id': next.id}),
           child: Row(
             children: [
               const Mascot(coin: false, size: 40),
@@ -258,8 +254,7 @@ class _HomeViewState extends State<HomeView> {
               KButton(
                 'Catat uang',
                 small: true,
-                onTap: () =>
-                    openPage(context, AddTransactionView(store: store)),
+                onTap: () => openPage(context, KRoute.transaction),
               ),
             ],
           ),
@@ -268,7 +263,7 @@ class _HomeViewState extends State<HomeView> {
         KRow(
           'Minggu ini',
           'Lihat ringkasan minggumu.',
-          onTap: () => openPage(context, WeeklySummaryView(store: store)),
+          onTap: () => openPage(context, KRoute.weeklySummary),
         ),
       ],
     );

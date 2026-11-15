@@ -1,42 +1,44 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/widget_previews.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_riverpod/legacy.dart';
 import 'package:koini/app/app_router.dart';
 import 'package:koini/app/child_shell.dart';
 import 'package:koini/core/theme/koini_theme.dart';
 import 'package:koini/core/widgets/koini_ui.dart';
 import 'package:koini/features/dreams/viewmodels/dreams_viewmodel.dart';
-import 'package:koini/features/dreams/views/create_dream_view.dart';
-import 'package:koini/features/dreams/views/dream_detail_view.dart';
 import 'package:koini/features/dreams/widgets/dream_image.dart';
 import 'package:koini/models/koini_data.dart';
 import 'package:koini/previews/preview_data.dart';
 import 'package:koini/previews/preview_host.dart';
 import 'package:koini/services/koini_store.dart';
 
-class DreamListView extends StatefulWidget {
+final _viewModelProvider = ChangeNotifierProvider.autoDispose
+    .family<DreamsViewModel, DreamListView>(
+      (ref, view) => DreamsViewModel(view.store),
+    );
+
+class DreamListView extends ConsumerStatefulWidget {
   const DreamListView({super.key, required this.store, this.parentAccess});
   final KoiniStore store;
   final VoidCallback? parentAccess;
 
   @override
-  State<DreamListView> createState() => _DreamListViewState();
+  ConsumerState<DreamListView> createState() => _DreamListViewState();
 }
 
-class _DreamListViewState extends State<DreamListView> {
+class _DreamListViewState extends ConsumerState<DreamListView> {
   KoiniStore get store => widget.store;
-  late final model = DreamsViewModel(store);
+  late final _provider = _viewModelProvider(widget);
+  DreamsViewModel get model => ref.read(_provider);
 
   @override
-  void dispose() {
-    model.dispose();
-    super.dispose();
+  Widget build(BuildContext context) {
+    ref.watch(_provider);
+    return buildPage(context);
   }
 
-  @override
-  Widget build(BuildContext context) =>
-      ListenableBuilder(listenable: model, builder: buildPage);
-
-  Widget buildPage(BuildContext context, Widget? child) => Column(
+  Widget buildPage(BuildContext context) => Column(
     crossAxisAlignment: CrossAxisAlignment.stretch,
     children: [
       if (model.dreams.isEmpty) ...[
@@ -52,14 +54,8 @@ class _DreamListViewState extends State<DreamListView> {
       for (final dream in model.dreams) ...[
         KCard(
           border: dream == model.featured ? KColors.gold : null,
-          onTap: () => openPage(
-            context,
-            DreamDetailView(
-              store: store,
-              id: dream.id,
-              parentAccess: widget.parentAccess,
-            ),
-          ),
+          onTap: () =>
+              openPage(context, KRoute.dream, pathParameters: {'id': dream.id}),
           child: Row(
             children: [
               dreamImage(dream),
@@ -104,7 +100,7 @@ class _DreamListViewState extends State<DreamListView> {
       const Gap(9),
       KButton(
         'Buat impian',
-        onTap: () => openPage(context, CreateDreamView(store: store)),
+        onTap: () => openPage(context, KRoute.createDream),
       ),
     ],
   );

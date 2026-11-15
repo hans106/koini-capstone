@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/widget_previews.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_riverpod/legacy.dart';
 import 'package:koini/app/child_shell.dart';
 import 'package:koini/core/theme/koini_theme.dart';
 import 'package:koini/core/widgets/koini_ui.dart';
@@ -10,7 +12,13 @@ import 'package:koini/previews/preview_host.dart';
 import 'package:koini/services/koini_store.dart';
 import 'package:koini/services/smart_plan.dart';
 
-class SmartPlanResultView extends StatefulWidget {
+final _viewModelProvider = ChangeNotifierProvider.autoDispose
+    .family<SmartPlanResultViewModel, SmartPlanResultView>(
+      (ref, view) =>
+          SmartPlanResultViewModel(view.store, view.dream, view.plan),
+    );
+
+class SmartPlanResultView extends ConsumerStatefulWidget {
   const SmartPlanResultView({
     super.key,
     required this.store,
@@ -22,27 +30,21 @@ class SmartPlanResultView extends StatefulWidget {
   final SmartPlan plan;
 
   @override
-  State<SmartPlanResultView> createState() => _SmartPlanResultViewState();
+  ConsumerState<SmartPlanResultView> createState() =>
+      _SmartPlanResultViewState();
 }
 
-class _SmartPlanResultViewState extends State<SmartPlanResultView> {
-  late final model = SmartPlanResultViewModel(
-    widget.store,
-    widget.dream,
-    widget.plan,
-  );
+class _SmartPlanResultViewState extends ConsumerState<SmartPlanResultView> {
+  late final _provider = _viewModelProvider(widget);
+  SmartPlanResultViewModel get model => ref.read(_provider);
 
   @override
-  void dispose() {
-    model.dispose();
-    super.dispose();
+  Widget build(BuildContext context) {
+    ref.watch(_provider);
+    return buildPage(context);
   }
 
-  @override
-  Widget build(BuildContext context) =>
-      ListenableBuilder(listenable: model, builder: buildPage);
-
-  Widget buildPage(BuildContext context, Widget? child) {
+  Widget buildPage(BuildContext context) {
     final plan = model.plan;
     final dream = model.dream;
     final weeks = plan.weeks;

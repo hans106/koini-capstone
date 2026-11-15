@@ -1,25 +1,31 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/widget_previews.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_riverpod/legacy.dart';
 import 'package:koini/app/app_router.dart';
 import 'package:koini/core/theme/koini_theme.dart';
 import 'package:koini/core/widgets/koini_ui.dart';
 import 'package:koini/features/parents/views/parent_dashboard_view.dart';
 import 'package:koini/features/plus/viewmodels/gift_viewmodel.dart';
-import 'package:koini/features/plus/views/gift_release_view.dart';
 import 'package:koini/models/koini_data.dart';
 import 'package:koini/previews/preview_data.dart';
 import 'package:koini/previews/preview_host.dart';
 import 'package:koini/services/koini_store.dart';
 
-class GiftSeasonView extends StatefulWidget {
+final _viewModelProvider = ChangeNotifierProvider.autoDispose
+    .family<GiftSeasonViewModel, GiftSeasonView>(
+      (ref, view) => GiftSeasonViewModel(view.store),
+    );
+
+class GiftSeasonView extends ConsumerStatefulWidget {
   const GiftSeasonView({super.key, required this.store});
   final KoiniStore store;
 
   @override
-  State<GiftSeasonView> createState() => _GiftSeasonViewState();
+  ConsumerState<GiftSeasonView> createState() => _GiftSeasonViewState();
 }
 
-class _GiftSeasonViewState extends State<GiftSeasonView> {
+class _GiftSeasonViewState extends ConsumerState<GiftSeasonView> {
   final memo = TextEditingController();
   final total = TextEditingController();
   final parts = {for (final jar in Jar.values) jar: TextEditingController()};
@@ -30,17 +36,19 @@ class _GiftSeasonViewState extends State<GiftSeasonView> {
     for (final controller in [memo, total, held, ...parts.values]) {
       controller.dispose();
     }
-    model.dispose();
     super.dispose();
   }
 
-  late final model = GiftSeasonViewModel(widget.store);
+  late final _provider = _viewModelProvider(widget);
+  GiftSeasonViewModel get model => ref.read(_provider);
 
   @override
-  Widget build(BuildContext context) =>
-      ListenableBuilder(listenable: model, builder: buildPage);
+  Widget build(BuildContext context) {
+    ref.watch(_provider);
+    return buildPage(context);
+  }
 
-  Widget buildPage(BuildContext context, Widget? child) {
+  Widget buildPage(BuildContext context) {
     final remainder = model.remainder;
     return KPage(
       title: 'Musim uang hadiah',
@@ -139,8 +147,7 @@ class _GiftSeasonViewState extends State<GiftSeasonView> {
           KRow(
             'Kembalikan uang titipan',
             'Catat uang yang sudah dikembalikan ke salah satu toples.',
-            onTap: () =>
-                openPage(context, GiftReleaseView(store: widget.store)),
+            onTap: () => openPage(context, KRoute.releaseGift),
           ),
         ],
       ],

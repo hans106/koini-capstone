@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/widget_previews.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_riverpod/legacy.dart';
 import 'package:koini/core/widgets/koini_ui.dart';
 import 'package:koini/features/jars/widgets/jar_split_editor.dart';
 import 'package:koini/features/parents/viewmodels/allowance_settings_viewmodel.dart';
@@ -7,33 +9,48 @@ import 'package:koini/features/parents/views/parent_dashboard_view.dart';
 import 'package:koini/previews/preview_host.dart';
 import 'package:koini/services/koini_store.dart';
 
-class AllowanceSettingsView extends StatefulWidget {
+final _viewModelProvider = ChangeNotifierProvider.autoDispose
+    .family<AllowanceSettingsViewModel, AllowanceSettingsView>(
+      (ref, view) => AllowanceSettingsViewModel(view.store),
+    );
+
+class AllowanceSettingsView extends ConsumerStatefulWidget {
   const AllowanceSettingsView({super.key, required this.store});
   final KoiniStore store;
 
   @override
-  State<AllowanceSettingsView> createState() => _AllowanceSettingsViewState();
+  ConsumerState<AllowanceSettingsView> createState() =>
+      _AllowanceSettingsViewState();
 }
 
-class _AllowanceSettingsViewState extends State<AllowanceSettingsView> {
-  late final form = AllowanceSettingsViewModel(widget.store);
+class _AllowanceSettingsViewState extends ConsumerState<AllowanceSettingsView> {
+  late final _provider = _viewModelProvider(widget);
+  AllowanceSettingsViewModel get form => ref.read(_provider);
 
-  late final amountField = TextEditingController(text: form.total.toString());
-  late final limitField = TextEditingController(text: form.limit.toString());
+  late final TextEditingController amountField;
+  late final TextEditingController limitField;
+
+  @override
+  void initState() {
+    super.initState();
+    amountField = TextEditingController(text: form.total.toString());
+    limitField = TextEditingController(text: form.limit.toString());
+  }
 
   @override
   void dispose() {
     amountField.dispose();
     limitField.dispose();
-    form.dispose();
     super.dispose();
   }
 
   @override
-  Widget build(BuildContext context) =>
-      ListenableBuilder(listenable: form, builder: buildPage);
+  Widget build(BuildContext context) {
+    ref.watch(_provider);
+    return buildPage(context);
+  }
 
-  Widget buildPage(BuildContext context, Widget? child) => KPage(
+  Widget buildPage(BuildContext context) => KPage(
     title: 'Atur uang saku',
     footer: KButton(
       'Simpan rencana',

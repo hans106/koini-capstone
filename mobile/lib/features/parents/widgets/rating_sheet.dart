@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_riverpod/legacy.dart';
 import 'package:koini/core/theme/koini_theme.dart';
 import 'package:koini/core/widgets/koini_ui.dart';
 import 'package:koini/features/parents/viewmodels/rating_viewmodel.dart';
@@ -11,27 +13,27 @@ Future<void> rate(BuildContext context, KoiniStore store) =>
       builder: (_) => _RatingSheet(store: store),
     );
 
-class _RatingSheet extends StatefulWidget {
+final _viewModelProvider = ChangeNotifierProvider.autoDispose
+    .family<RatingViewModel, _RatingSheet>(
+      (ref, view) => RatingViewModel(view.store),
+    );
+
+class _RatingSheet extends ConsumerStatefulWidget {
   const _RatingSheet({required this.store});
   final KoiniStore store;
 
   @override
-  State<_RatingSheet> createState() => _RatingSheetState();
+  ConsumerState<_RatingSheet> createState() => _RatingSheetState();
 }
 
-class _RatingSheetState extends State<_RatingSheet> {
-  late final model = RatingViewModel(widget.store);
+class _RatingSheetState extends ConsumerState<_RatingSheet> {
+  late final _provider = _viewModelProvider(widget);
+  RatingViewModel get model => ref.read(_provider);
 
   @override
-  void dispose() {
-    model.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) => ListenableBuilder(
-    listenable: model,
-    builder: (context, child) => Padding(
+  Widget build(BuildContext context) {
+    ref.watch(_provider);
+    return Padding(
       padding: EdgeInsets.fromLTRB(
         16,
         10,
@@ -80,6 +82,6 @@ class _RatingSheetState extends State<_RatingSheet> {
           ],
         ),
       ),
-    ),
-  );
+    );
+  }
 }

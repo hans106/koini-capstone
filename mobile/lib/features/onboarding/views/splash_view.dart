@@ -15,9 +15,34 @@ class SplashView extends StatelessWidget {
           tween: Tween(begin: .12, end: 1),
           curve: Curves.easeOutBack,
           duration: const Duration(milliseconds: 650),
-          builder: (_, scale, child) =>
+          builder: (_, scale, child) => Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
               Transform.scale(scale: scale, child: child),
-          child: const Mascot(glow: true),
+              Opacity(
+                opacity: ((scale - .7) / .3).clamp(0.0, 1.0),
+                child: Column(
+                  children: [
+                    const Gap(10),
+                    Image.asset(
+                      'assets/images/wordmark.png',
+                      width: 126,
+                      semanticLabel: 'Koini',
+                    ),
+                    const Text(
+                      'TEMAN PINTAR UANG SAKU',
+                      style: TextStyle(
+                        fontSize: 12,
+                        letterSpacing: 2,
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          child: const Mascot(size: 152, glow: true),
         ),
       ),
     ),

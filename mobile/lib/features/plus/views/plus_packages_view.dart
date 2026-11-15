@@ -1,12 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/widget_previews.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_riverpod/legacy.dart';
 import 'package:koini/app/app_router.dart';
 import 'package:koini/core/theme/koini_theme.dart';
 import 'package:koini/core/widgets/koini_ui.dart';
 import 'package:koini/features/parents/views/parent_dashboard_view.dart';
-import 'package:koini/features/parents/views/parent_pin_view.dart';
 import 'package:koini/features/plus/viewmodels/plus_packages_viewmodel.dart';
-import 'package:koini/features/plus/views/active_plan_view.dart';
 import 'package:koini/models/koini_data.dart';
 import 'package:koini/previews/preview_data.dart';
 import 'package:koini/previews/preview_host.dart';
@@ -24,7 +24,12 @@ const _features = [
   ('Musim uang hadiah', Plan.yearly),
 ];
 
-class PlusPackagesView extends StatefulWidget {
+final _viewModelProvider = ChangeNotifierProvider.autoDispose
+    .family<PlusPackagesViewModel, PlusPackagesView>(
+      (ref, view) => PlusPackagesViewModel(view.store),
+    );
+
+class PlusPackagesView extends ConsumerStatefulWidget {
   const PlusPackagesView({
     super.key,
     required this.store,
@@ -34,10 +39,10 @@ class PlusPackagesView extends StatefulWidget {
   final Map<String, VoidCallback> yearlyFeatures;
 
   @override
-  State<PlusPackagesView> createState() => _PlusPackagesViewState();
+  ConsumerState<PlusPackagesView> createState() => _PlusPackagesViewState();
 }
 
-class _PlusPackagesViewState extends State<PlusPackagesView> {
+class _PlusPackagesViewState extends ConsumerState<PlusPackagesView> {
   Future<void> confirmPlan() async {
     if (!model.beginConfirmation()) return;
     final plan = model.selected;
@@ -68,42 +73,29 @@ class _PlusPackagesViewState extends State<PlusPackagesView> {
     }
     final result = await openPage<bool>(
       context,
-      ParentPinView(
-        title: 'PIN Ayah/Bunda',
-        prompt: 'Masukkan PIN 6 angka untuk memilih paket ${plan.label}.',
-        buttonLabel: 'Aktifkan paket demo',
-        verify: (pin) => model.verify(plan, pin),
-      ),
+      KRoute.parentPin,
+      extra: (plan: plan, verify: (String pin) => model.verify(plan, pin)),
     );
     if (!mounted) return;
     model.endConfirmation();
     if (result == true && plan != Plan.free) {
-      await openPage<void>(
-        context,
-        ActivePlanView(
-          store: widget.store,
-          yearlyFeatures: widget.yearlyFeatures,
-        ),
-      );
+      await openPage<void>(context, KRoute.activePlan);
       if (mounted) Navigator.pop(context);
     } else if (result == true) {
       note(context, 'Paket Gratis aktif.');
     }
   }
 
-  late final model = PlusPackagesViewModel(widget.store);
+  late final _provider = _viewModelProvider(widget);
+  PlusPackagesViewModel get model => ref.read(_provider);
 
   @override
-  Widget build(BuildContext context) =>
-      ListenableBuilder(listenable: model, builder: buildPage);
-
-  @override
-  void dispose() {
-    model.dispose();
-    super.dispose();
+  Widget build(BuildContext context) {
+    ref.watch(_provider);
+    return buildPage(context);
   }
 
-  Widget buildPage(BuildContext context, Widget? child) => KPage(
+  Widget buildPage(BuildContext context) => KPage(
     title: 'Koini Plus',
     trailing: Pill(model.current.label, icon: Icons.star, color: KColors.gold),
     footer: KButton(
