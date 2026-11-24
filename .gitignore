@@ -1,0 +1,17 @@
+# IDE / Editor
+.idea/
+*.iml
+*.ipr
+*.iws
+
+# Environment & Secrets
+env.json
+mobile/env.json
+.env
+.env.*
+!.env.example
+!mobile/env.example.json
+
+# OS
+.DS_Store
+Thumbs.db
