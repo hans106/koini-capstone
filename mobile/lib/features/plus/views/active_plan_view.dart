@@ -46,14 +46,6 @@ class _ActivePlanViewState extends ConsumerState<ActivePlanView> {
     button: 'Kembali ke Ringkasan',
     details: [
       KRow(
-        'Rencana Pintar',
-        'Perkiraan waktu untuk impian',
-        color: KColors.gold,
-        icon: const Icon(Icons.star, color: KColors.gold),
-        onTap: () => openSmartPlan(context, widget.store, model.activeDream),
-      ),
-      const Gap(8),
-      KRow(
         'Catatan terstruktur',
         'Rincian transaksi per kategori',
         color: KColors.gold,

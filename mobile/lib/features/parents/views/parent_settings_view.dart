@@ -47,55 +47,15 @@ class _ParentSettingsViewState extends ConsumerState<ParentSettingsView> {
       children: [
         KRow(
           'Uang saku',
-          '${rupiah(form.allowance)} per minggu Â· Batas ${rupiah(form.dailyLimit)} per hari',
+          '${rupiah(form.allowance)} per minggu · Batas ${rupiah(form.dailyLimit)} per hari',
           onTap: () => openPage(context, KRoute.allowance),
-        ),
-        const Gap(8),
-        KCard(
-          padding: EdgeInsets.zero,
-          child: Column(
-            children: [
-              Padding(
-                padding: const EdgeInsets.fromLTRB(14, 12, 14, 0),
-                child: Row(
-                  children: [
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          heading('Email Ayah/Bunda', size: 17),
-                          caption(
-                            form.email.isEmpty
-                                ? 'Email belum diisi'
-                                : form.email,
-                          ),
-                        ],
-                      ),
-                    ),
-                    const SizedBox(width: 8),
-                    KButton(
-                      'Lihat contoh',
-                      small: true,
-                      onTap: () => openPage(context, KRoute.weeklyEmail),
-                    ),
-                  ],
-                ),
-              ),
-              SwitchListTile(
-                title: const Text('Ringkasan mingguan'),
-                subtitle: caption('Preferensi demo'),
-                value: form.reminders,
-                onChanged: form.setReminders,
-              ),
-            ],
-          ),
         ),
         const Gap(8),
         KCard(
           padding: EdgeInsets.zero,
           child: SwitchListTile(
             title: const Text('Cerita Koini'),
-            subtitle: caption('Cerita edukasi pilihan Â· Demo Koini Plus'),
+            subtitle: caption('Cerita edukasi pilihan · Demo Koini Plus'),
             value: form.stories,
             onChanged: (value) {
               if (!form.hasPlus) {
@@ -111,23 +71,6 @@ class _ParentSettingsViewState extends ConsumerState<ParentSettingsView> {
           ),
         ),
         const Gap(8),
-        KRow(
-          'Musim uang hadiah',
-          'THR, angpao, dan hadiah Â· Tahunan',
-          onTap: () =>
-              openYearly(context, store, () => openPage(context, KRoute.gifts)),
-        ),
-        const Gap(7),
-        KRow(
-          'Peringatan email',
-          'Kabar saat catatan tabungan berkurang Â· Tahunan',
-          onTap: () => openYearly(
-            context,
-            store,
-            () => openPage(context, KRoute.alertEmail),
-          ),
-        ),
-        const Gap(7),
         KRow(
           'Tambah bonus',
           'Catat uang bonus yang sudah diberikan',

@@ -143,32 +143,7 @@ class _DreamDetailViewState extends ConsumerState<DreamDetailView> {
         KCallout(
           remaining == 0 ? 'Impian terwujud!' : 'Makin dekat!',
           remaining == 0 ? 'Ajak Ayah/Bunda merayakan.' : 'Terus menabung, ya!',
-          action: Pill(
-            'Rencana',
-            color: KColors.gold,
-            icon: Icons.star,
-            onTap: () => openSmartPlan(
-              context,
-              store,
-              dream,
-              parentAccess: widget.parentAccess,
-            ),
-          ),
         ),
-        const Gap(10),
-        if (remaining > 0)
-          KRow(
-            'Target bertanggal',
-            dream.deadline != null
-                ? dateLabel(dream.deadline!)
-                : 'Pilih tanggal untuk impianmu · Tahunan',
-            onTap: () => openDatedGoal(
-              context,
-              store,
-              dream,
-              parentAccess: widget.parentAccess,
-            ),
-          ),
         const Gap(9),
         if (remaining > 0)
           KButton(

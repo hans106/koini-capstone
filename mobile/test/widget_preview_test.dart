@@ -255,25 +255,21 @@ void main() {
     await tester.drag(find.byType(ListView).last, const Offset(0, -380));
     await tester.pumpAndSettle();
     await press(tester, 'Setelan orang tua');
-    await tester.tap(find.widgetWithText(SwitchListTile, 'Ringkasan mingguan'));
-    await tester.pumpAndSettle();
     await press(tester, 'Simpan setelan');
     expect(find.text('Setelan orang tua tersimpan.'), findsOneWidget);
   });
 
-  testWidgets('Koini Plus preview activates a plan and computes an estimate', (
-    tester,
-  ) async {
-    await mount(tester, plusPackagesPreview);
-    await press(tester, 'Bulanan');
-    await press(tester, 'Mulai paket Bulanan');
-    await press(tester, 'Lanjut dengan PIN');
-    await enterPin(tester, previewPin, 'Aktifkan paket demo');
-    expect(find.text('Koini Plus aktif!'), findsOneWidget);
-    await press(tester, 'Rencana Pintar');
-    await press(tester, 'Lihat rencana');
-    await tester.pump(const Duration(milliseconds: 600));
-    await tester.pumpAndSettle();
-    expect(find.text('15 minggu'), findsOneWidget);
-  });
+  testWidgets(
+    'Koini Plus preview activates a plan and opens structured history',
+    (tester) async {
+      await mount(tester, plusPackagesPreview);
+      await press(tester, 'Bulanan');
+      await press(tester, 'Mulai paket Bulanan');
+      await press(tester, 'Lanjut dengan PIN');
+      await enterPin(tester, previewPin, 'Aktifkan paket demo');
+      expect(find.text('Koini Plus aktif!'), findsOneWidget);
+      await press(tester, 'Catatan terstruktur');
+      expect(find.text('Catatan terstruktur'), findsOneWidget);
+    },
+  );
 }

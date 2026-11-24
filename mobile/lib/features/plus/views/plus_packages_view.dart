@@ -16,12 +16,8 @@ const _features = [
   ('Catat, impian, dan misi', Plan.free),
   ('Tiga toples dan lencana', Plan.free),
   ('Ringkasan mingguan', Plan.free),
-  ('Rencana Pintar', Plan.monthly),
   ('Catatan terstruktur', Plan.monthly),
   ('Rapor bulanan', Plan.yearly),
-  ('Peringatan email', Plan.yearly),
-  ('Target bertanggal', Plan.yearly),
-  ('Musim uang hadiah', Plan.yearly),
 ];
 
 final _viewModelProvider = ChangeNotifierProvider.autoDispose

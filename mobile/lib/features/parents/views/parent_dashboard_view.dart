@@ -146,7 +146,7 @@ class _ParentDashboardViewState extends ConsumerState<ParentDashboardView> {
         const Gap(7),
         KRow(
           'Setelan orang tua',
-          'Uang saku, email, dan PIN',
+          'Uang saku dan PIN',
           onTap: () => openPage(context, KRoute.parentSettings),
         ),
       ],

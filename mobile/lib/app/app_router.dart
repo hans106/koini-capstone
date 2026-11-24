@@ -137,18 +137,22 @@ final routerProvider = Provider<GoRouter>((ref) {
         return _childHome;
       }
 
-      if ((path == KRoute.structuredHistory.path ||
-              path == KRoute.smartPlan.path ||
-              path == KRoute.smartPlanResult.path) &&
-          !store.hasPlus) {
+      // Fitur yang dipotong dari MVP (smart_plan, dated_goal, email_preview, gift_season)
+      // disembunyikan dari navigasi dan diarahkan kembali ke beranda anak.
+      if (path == KRoute.smartPlan.path ||
+          path == KRoute.smartPlanResult.path ||
+          path == KRoute.chooseDatedDream.path ||
+          path.startsWith('/target-bertanggal/') ||
+          path == KRoute.weeklyEmail.path ||
+          path == KRoute.alertEmail.path ||
+          path.startsWith(KRoute.gifts.path)) {
         return _childHome;
       }
-      if ((path.startsWith('/target-bertanggal/') ||
-              path == KRoute.chooseDatedDream.path ||
-              path == KRoute.monthlyReport.path ||
-              path == KRoute.alertEmail.path ||
-              path.startsWith(KRoute.gifts.path)) &&
-          !store.hasYearly) {
+
+      if (path == KRoute.structuredHistory.path && !store.hasPlus) {
+        return _childHome;
+      }
+      if (path == KRoute.monthlyReport.path && !store.hasYearly) {
         return _childHome;
       }
       return null;
@@ -448,26 +452,11 @@ void plusGate(
   kSheet(
     context,
     yearly ? 'Fitur paket Tahunan' : 'Ini fitur Koini Plus',
-    yearly
-        ? 'Rapor, peringatan, target bertanggal, dan musim hadiah tersedia di paket Tahunan.'
-        : 'Rencana Pintar dan Catatan terstruktur ada di Koini Plus. Fitur dasar Koini tetap gratis.',
+    yearly ? 'Rapor bulanan tersedia di paket Tahunan.' : 'Catatan terstruktur ada di Koini Plus. Fitur dasar Koini tetap gratis.',
     primary: parentAccess == null ? 'Oke' : 'Ajak Ayah/Bunda',
     secondary: parentAccess == null ? null : 'Nanti saja',
     action: parentAccess,
   );
-}
-
-void openSmartPlan(
-  BuildContext context,
-  KoiniStore store,
-  Dream? dream, {
-  VoidCallback? parentAccess,
-}) {
-  if (!store.hasPlus) {
-    plusGate(context, yearly: false, parentAccess: parentAccess);
-  } else {
-    openPage(context, KRoute.smartPlan, extra: dream);
-  }
 }
 
 void openDatedGoal(
@@ -496,21 +485,4 @@ void showPlus(BuildContext context) => openPage(context, KRoute.plusPackages);
 Map<String, VoidCallback> yearlyPlanActions(
   BuildContext context,
   KoiniStore store,
-) => {
-  'Rapor bulanan': () => openPage(context, KRoute.monthlyReport),
-  'Peringatan email': () => openPage(context, KRoute.alertEmail),
-  'Target bertanggal': () => chooseDatedDream(context, store),
-  'Musim uang hadiah': () => openPage(context, KRoute.gifts),
-};
-
-void chooseDatedDream(BuildContext context, KoiniStore store) {
-  if (!store.dreams.any((dream) => store.remaining(dream) > 0)) {
-    kSheet(
-      context,
-      'Belum ada impian aktif',
-      'Buat impian di area anak untuk menetapkan tanggal.',
-    );
-    return;
-  }
-  openPage(context, KRoute.chooseDatedDream);
-}
+) => {'Rapor bulanan': () => openPage(context, KRoute.monthlyReport)};
