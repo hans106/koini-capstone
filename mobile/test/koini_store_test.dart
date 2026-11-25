@@ -304,4 +304,32 @@ void main() {
       expect(store.savedFor(dream), 15000);
     },
   );
+
+  test(
+    'savings bonus checks minimum tabung and credits tabung when confirmed',
+    () async {
+      expect(
+        await store.addSavingsBonus(
+          bonusAmount: 5000,
+          minSavings: 40000,
+          startDate: now,
+          endDate: now.add(const Duration(days: 30)),
+        ),
+        isNull,
+      );
+      final bonus = store.bonuses.single;
+      // Fails confirmation while Tabung < 40.000
+      expect(
+        await store.resolveSavingsBonus(bonus.id, succeeded: true),
+        isNotNull,
+      );
+      expect(await store.receiveAllowance(), isNull); // Tabung = 40.000
+      expect(
+        await store.resolveSavingsBonus(bonus.id, succeeded: true),
+        isNull,
+      );
+      expect(store.bonuses.single.status, BonusStatus.completed);
+      expect(store.balance(Jar.tabung), 45000);
+    },
+  );
 }

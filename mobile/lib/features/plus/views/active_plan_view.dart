@@ -54,6 +54,14 @@ class _ActivePlanViewState extends ConsumerState<ActivePlanView> {
       ),
       const Gap(8),
       KRow(
+        'Bonus Tabungan',
+        'Berikan bonus jika anak menjaga tabungan utuh',
+        color: KColors.gold,
+        icon: const Icon(Icons.savings_rounded, color: KColors.gold),
+        onTap: () => openPage(context, KRoute.parentSavingsBonus),
+      ),
+      const Gap(8),
+      KRow(
         'Catatan terstruktur',
         'Rincian transaksi per kategori',
         color: KColors.gold,

@@ -315,6 +315,13 @@ class _HomeViewState extends ConsumerState<HomeView> {
             color: KColors.gold,
             onTap: () => openPage(context, KRoute.challenges),
           ),
+          const Gap(9),
+          KRow(
+            'Bonus Tabungan',
+            'Cek janji bonus dari Ayah/Bunda saat tabunganmu utuh.',
+            color: KColors.gold,
+            onTap: () => openPage(context, KRoute.savingsBonus),
+          ),
         ],
         const Gap(9),
         KRow(

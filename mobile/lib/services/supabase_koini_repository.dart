@@ -18,6 +18,7 @@ class RemoteSnapshot {
     this.entries = const [],
     this.piggyChecks = const [],
     this.challenges = const [],
+    this.bonuses = const [],
     this.missionScores = const {},
   });
 
@@ -34,6 +35,7 @@ class RemoteSnapshot {
   final List<MoneyEntry> entries;
   final List<PiggyBankCheck> piggyChecks;
   final List<RewardChallenge> challenges;
+  final List<SavingsBonus> bonuses;
   final Map<String, int> missionScores;
 }
 
@@ -96,6 +98,16 @@ abstract interface class KoiniRemoteRepository {
     required int tantanganId,
     required ChallengeStatus status,
     DateTime? confirmedAt,
+  });
+
+  Future<int?> insertSavingsBonus({
+    required int anakId,
+    required SavingsBonus bonus,
+  });
+
+  Future<void> updateSavingsBonusStatus({
+    required int bonusId,
+    required BonusStatus status,
   });
 
   Future<int> runSisaJajan({
@@ -306,6 +318,26 @@ final class SupabaseKoiniRepository implements KoiniRemoteRepository {
         ),
     ];
 
+    final bonusRows = await _client
+        .from('bonus_tabungan')
+        .select(
+          'bonus_id, nominal_bonus, minimal_tabungan, mulai, berakhir, status, created_at',
+        )
+        .eq('anak_id', anakId)
+        .order('created_at', ascending: false);
+    final bonuses = [
+      for (final row in bonusRows)
+        SavingsBonus(
+          id: '${(row['bonus_id'] as num).toInt()}',
+          bonusAmount: (row['nominal_bonus'] as num).toInt(),
+          minSavings: (row['minimal_tabungan'] as num).toInt(),
+          startDate: DateTime.parse(row['mulai'] as String),
+          endDate: DateTime.parse(row['berakhir'] as String),
+          status: BonusStatus.fromDb(row['status'] as String?),
+          createdAt: DateTime.parse(row['created_at'] as String).toLocal(),
+        ),
+    ];
+
     final missionIdByDbId = {
       for (final m in loadedMissions)
         if (m.dbId != null) m.dbId!: m.id,
@@ -337,6 +369,7 @@ final class SupabaseKoiniRepository implements KoiniRemoteRepository {
       entries: entries,
       piggyChecks: checks,
       challenges: challenges,
+      bonuses: bonuses,
       missionScores: scores,
     );
   }
@@ -607,6 +640,39 @@ final class SupabaseKoiniRepository implements KoiniRemoteRepository {
             'dikonfirmasi_pada': confirmedAt.toUtc().toIso8601String(),
         })
         .eq('tantangan_id', tantanganId);
+  }
+
+  @override
+  Future<int?> insertSavingsBonus({
+    required int anakId,
+    required SavingsBonus bonus,
+  }) async {
+    if (!isSignedIn) return null;
+    final inserted = await _client
+        .from('bonus_tabungan')
+        .insert({
+          'anak_id': anakId,
+          'nominal_bonus': bonus.bonusAmount,
+          'minimal_tabungan': bonus.minSavings,
+          'mulai': isoDate(bonus.startDate),
+          'berakhir': isoDate(bonus.endDate),
+          'status': bonus.status.dbValue,
+        })
+        .select('bonus_id')
+        .single();
+    return (inserted['bonus_id'] as num).toInt();
+  }
+
+  @override
+  Future<void> updateSavingsBonusStatus({
+    required int bonusId,
+    required BonusStatus status,
+  }) async {
+    if (!isSignedIn) return;
+    await _client
+        .from('bonus_tabungan')
+        .update({'status': status.dbValue})
+        .eq('bonus_id', bonusId);
   }
 
   @override

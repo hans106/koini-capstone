@@ -32,6 +32,7 @@ import 'package:koini/features/plus/views/gift_release_view.dart';
 import 'package:koini/features/plus/views/gift_season_view.dart';
 import 'package:koini/features/plus/views/plus_packages_view.dart';
 import 'package:koini/features/plus/views/reward_challenge_view.dart';
+import 'package:koini/features/plus/views/savings_bonus_view.dart';
 import 'package:koini/features/plus/views/smart_plan_result_view.dart';
 import 'package:koini/features/plus/views/smart_plan_view.dart';
 import 'package:koini/features/rewards/views/badge_gallery_view.dart';
@@ -70,6 +71,8 @@ enum KRoute {
   activePlan('/orang-tua/paket-aktif'),
   challenges('/tantangan-hadiah'),
   parentChallenges('/orang-tua/tantangan-hadiah'),
+  savingsBonus('/bonus-tabungan'),
+  parentSavingsBonus('/orang-tua/bonus-tabungan'),
   chooseDatedDream('/orang-tua/pilih-target'),
   gifts('/orang-tua/hadiah'),
   releaseGift('/orang-tua/hadiah/pengembalian'),
@@ -155,7 +158,9 @@ final routerProvider = Provider<GoRouter>((ref) {
 
       if ((path == KRoute.structuredHistory.path ||
               path == KRoute.challenges.path ||
-              path == KRoute.parentChallenges.path) &&
+              path == KRoute.parentChallenges.path ||
+              path == KRoute.savingsBonus.path ||
+              path == KRoute.parentSavingsBonus.path) &&
           !store.hasPlus) {
         return _childHome;
       }
@@ -327,6 +332,11 @@ Widget _screen(
     ),
     KRoute.challenges => RewardChallengeView(store: store),
     KRoute.parentChallenges => RewardChallengeView(
+      store: store,
+      parentMode: true,
+    ),
+    KRoute.savingsBonus => SavingsBonusView(store: store),
+    KRoute.parentSavingsBonus => SavingsBonusView(
       store: store,
       parentMode: true,
     ),

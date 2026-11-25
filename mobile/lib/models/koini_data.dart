@@ -82,6 +82,21 @@ enum ChallengeStatus {
       );
 }
 
+enum BonusStatus {
+  active('berjalan', 'Berjalan'),
+  completed('berhasil', 'Berhasil'),
+  failed('gagal', 'Belum berhasil');
+
+  const BonusStatus(this.dbValue, this.label);
+  final String dbValue;
+  final String label;
+
+  static BonusStatus fromDb(String? value) => BonusStatus.values.firstWhere(
+    (item) => item.dbValue == value || item.name == value,
+    orElse: () => BonusStatus.active,
+  );
+}
+
 enum Plan {
   free('Gratis', 'Rp0'),
   monthly('Bulanan', 'Rp5.000/bulan'),
@@ -243,6 +258,56 @@ class RewardChallenge {
       );
 }
 
+class SavingsBonus {
+  const SavingsBonus({
+    required this.id,
+    required this.bonusAmount,
+    required this.minSavings,
+    required this.startDate,
+    required this.endDate,
+    required this.status,
+    required this.createdAt,
+  });
+
+  final String id;
+  final int bonusAmount;
+  final int minSavings;
+  final DateTime startDate;
+  final DateTime endDate;
+  final BonusStatus status;
+  final DateTime createdAt;
+
+  SavingsBonus copyWith({String? id, BonusStatus? status}) => SavingsBonus(
+    id: id ?? this.id,
+    bonusAmount: bonusAmount,
+    minSavings: minSavings,
+    startDate: startDate,
+    endDate: endDate,
+    status: status ?? this.status,
+    createdAt: createdAt,
+  );
+
+  Map<String, dynamic> toJson() => {
+    'id': id,
+    'bonusAmount': bonusAmount,
+    'minSavings': minSavings,
+    'startDate': startDate.toIso8601String(),
+    'endDate': endDate.toIso8601String(),
+    'status': status.dbValue,
+    'createdAt': createdAt.toIso8601String(),
+  };
+
+  factory SavingsBonus.fromJson(Map<String, dynamic> json) => SavingsBonus(
+    id: json['id'] as String,
+    bonusAmount: json['bonusAmount'] as int,
+    minSavings: json['minSavings'] as int,
+    startDate: DateTime.parse(json['startDate'] as String),
+    endDate: DateTime.parse(json['endDate'] as String),
+    status: BonusStatus.fromDb(json['status'] as String?),
+    createdAt: DateTime.parse(json['createdAt'] as String),
+  );
+}
+
 class MoneyEntry {
   const MoneyEntry({
     required this.kind,
@@ -366,6 +431,7 @@ class KoiniData {
   final dreams = <Dream>[];
   final piggyChecks = <PiggyBankCheck>[];
   final challenges = <RewardChallenge>[];
+  final bonuses = <SavingsBonus>[];
   final missionScores = <String, int>{};
   final studyDays = <String>{};
 
@@ -393,6 +459,7 @@ class KoiniData {
     'dreams': dreams.map((dream) => dream.toJson()).toList(),
     'piggyChecks': piggyChecks.map((check) => check.toJson()).toList(),
     'challenges': challenges.map((item) => item.toJson()).toList(),
+    'bonuses': bonuses.map((item) => item.toJson()).toList(),
     'missionScores': missionScores,
     'studyDays': studyDays.toList(),
   };
@@ -439,6 +506,11 @@ class KoiniData {
         rawChallenges.cast<Map<String, dynamic>>().map(
           RewardChallenge.fromJson,
         ),
+      );
+    }
+    if (json['bonuses'] case final List rawBonuses) {
+      bonuses.addAll(
+        rawBonuses.cast<Map<String, dynamic>>().map(SavingsBonus.fromJson),
       );
     }
     missionScores.addAll((json['missionScores'] as Map).cast<String, int>());

@@ -46,6 +46,7 @@ class KoiniStore extends ChangeNotifier {
   List<MoneyEntry> get entries => List.unmodifiable(_data.entries.reversed);
   List<PiggyBankCheck> get piggyChecks => List.unmodifiable(_data.piggyChecks);
   List<RewardChallenge> get challenges => List.unmodifiable(_data.challenges);
+  List<SavingsBonus> get bonuses => List.unmodifiable(_data.bonuses);
   List<Mission> get catalogMissions =>
       _remoteMissions.isNotEmpty ? _remoteMissions : fallback.missions;
   Map<String, int> get scores => Map.unmodifiable(_data.missionScores);
@@ -171,6 +172,11 @@ class KoiniStore extends ChangeNotifier {
           next.challenges
             ..clear()
             ..addAll(snapshot.challenges);
+        }
+        if (snapshot.bonuses.isNotEmpty) {
+          next.bonuses
+            ..clear()
+            ..addAll(snapshot.bonuses);
         }
         if (snapshot.missionScores.isNotEmpty) {
           next.missionScores.addAll(snapshot.missionScores);
@@ -749,6 +755,107 @@ class KoiniStore extends ChangeNotifier {
       }
     }
     if (rewardEntry case final entry?) {
+      await _syncEntryToRemote(entry);
+    }
+    return null;
+  }
+
+  Future<String?> addSavingsBonus({
+    required int bonusAmount,
+    required int minSavings,
+    required DateTime startDate,
+    required DateTime endDate,
+  }) async {
+    if (!_validAmount(bonusAmount) || !_validAmount(minSavings)) {
+      return 'Isi nominal bonus dan minimal tabungan lebih dari Rp0.';
+    }
+    if (endDate.isBefore(startDate)) {
+      return 'Tanggal berakhir tidak boleh sebelum tanggal mulai.';
+    }
+    final localId = 'bn-${now.microsecondsSinceEpoch}-${_data.bonuses.length}';
+    final created = SavingsBonus(
+      id: localId,
+      bonusAmount: bonusAmount,
+      minSavings: minSavings,
+      startDate: dayStart(startDate),
+      endDate: dayStart(endDate),
+      status: BonusStatus.active,
+      createdAt: now,
+    );
+    final error = await _change((next) {
+      next.bonuses.insert(0, created);
+      return null;
+    });
+    if (error != null) return error;
+    final repo = remote;
+    final childId = _data.anakId;
+    if (repo != null && repo.isSignedIn && childId != null) {
+      try {
+        final dbId = await repo.insertSavingsBonus(
+          anakId: childId,
+          bonus: created,
+        );
+        if (dbId != null) {
+          await _change((next) {
+            final idx = next.bonuses.indexWhere((b) => b.id == localId);
+            if (idx >= 0) {
+              next.bonuses[idx] = next.bonuses[idx].copyWith(id: '$dbId');
+            }
+            return null;
+          });
+        }
+      } catch (e) {
+        debugPrint('Koini bonus insert remote sync: ${e.runtimeType}');
+      }
+    }
+    return null;
+  }
+
+  Future<String?> resolveSavingsBonus(
+    String bonusId, {
+    required bool succeeded,
+  }) async {
+    MoneyEntry? bonusEntry;
+    final targetStatus = succeeded ? BonusStatus.completed : BonusStatus.failed;
+    final error = await _change((next) {
+      final idx = next.bonuses.indexWhere((b) => b.id == bonusId);
+      if (idx < 0) return 'Janji bonus tidak ditemukan.';
+      final item = next.bonuses[idx];
+      if (item.status != BonusStatus.active) {
+        return 'Janji bonus ini sudah selesai.';
+      }
+      if (succeeded && balance(Jar.tabung) < item.minSavings) {
+        return 'Saldo Tabung belum mencapai minimal ${rupiah(item.minSavings)}.';
+      }
+      next.bonuses[idx] = item.copyWith(status: targetStatus);
+      if (succeeded) {
+        bonusEntry = MoneyEntry(
+          kind: EntryKind.bonus,
+          date: now,
+          amount: item.bonusAmount,
+          note: 'Bonus tabungan (${rupiah(item.minSavings)})',
+          changes: {Jar.tabung: item.bonusAmount},
+          dreamId: activeDream?.id,
+        );
+        next.entries.add(bonusEntry!);
+        _study(next);
+      }
+      return null;
+    });
+    if (error != null) return error;
+    final repo = remote;
+    final dbId = int.tryParse(bonusId);
+    if (repo != null && repo.isSignedIn && dbId != null) {
+      try {
+        await repo.updateSavingsBonusStatus(
+          bonusId: dbId,
+          status: targetStatus,
+        );
+      } catch (e) {
+        debugPrint('Koini bonus resolve sync: ${e.runtimeType}');
+      }
+    }
+    if (bonusEntry case final entry?) {
       await _syncEntryToRemote(entry);
     }
     return null;
