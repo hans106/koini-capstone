@@ -21,6 +21,7 @@ class OnboardingViewModel extends ViewModel {
   String _name;
   String _email = '';
   int _amount = 100000;
+  AllowancePeriod _period = AllowancePeriod.weekly;
   int _dailyLimit = 10000;
   Map<Jar, int>? _split;
   bool _consent;
@@ -32,6 +33,7 @@ class OnboardingViewModel extends ViewModel {
   OnboardingStep get step => _step;
   String get name => _name.trim();
   int get amount => _amount;
+  AllowancePeriod get period => _period;
   int get dailyLimit => _dailyLimit;
   Map<Jar, int> get split =>
       Map.unmodifiable(_split ?? KoiniStore.defaultSplit(amount));
@@ -49,6 +51,11 @@ class OnboardingViewModel extends ViewModel {
   }
 
   void changeLimit(String value) => _dailyLimit = int.tryParse(value) ?? 0;
+
+  void setPeriod(AllowancePeriod value) {
+    _period = value;
+    changed();
+  }
 
   void setConsent(bool value) {
     _consent = value;
@@ -134,6 +141,7 @@ class OnboardingViewModel extends ViewModel {
         email: _email,
         pin: _pin,
         allowance: amount,
+        period: _period,
         limit: dailyLimit,
         reminders: reminders,
         split: split,

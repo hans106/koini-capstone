@@ -6,6 +6,7 @@ import 'package:koini/core/widgets/koini_ui.dart';
 import 'package:koini/features/jars/widgets/jar_split_editor.dart';
 import 'package:koini/features/parents/viewmodels/allowance_settings_viewmodel.dart';
 import 'package:koini/features/parents/views/parent_dashboard_view.dart';
+import 'package:koini/models/koini_data.dart';
 import 'package:koini/previews/preview_host.dart';
 import 'package:koini/services/koini_store.dart';
 
@@ -69,8 +70,23 @@ class _AllowanceSettingsViewState extends ConsumerState<AllowanceSettingsView> {
             },
     ),
     children: [
+      caption('Periode uang saku'),
+      const Gap(6),
+      Wrap(
+        spacing: 7,
+        runSpacing: 6,
+        children: [
+          for (final period in AllowancePeriod.values)
+            Pill(
+              period.label,
+              selected: form.period == period,
+              onTap: () => form.changePeriod(period),
+            ),
+        ],
+      ),
+      const Gap(10),
       KField(
-        'Nominal per minggu',
+        'Nominal ${form.period.perLabel}',
         amountField,
         numeric: true,
         onChanged: form.changeAmount,

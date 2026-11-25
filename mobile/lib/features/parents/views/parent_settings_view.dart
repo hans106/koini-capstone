@@ -47,7 +47,7 @@ class _ParentSettingsViewState extends ConsumerState<ParentSettingsView> {
       children: [
         KRow(
           'Uang saku',
-          '${rupiah(form.allowance)} per minggu · Batas ${rupiah(form.dailyLimit)} per hari',
+          '${rupiah(form.allowance)} ${form.allowancePeriod.perLabel} · Batas ${rupiah(form.dailyLimit)} per hari',
           onTap: () => openPage(context, KRoute.allowance),
         ),
         const Gap(8),

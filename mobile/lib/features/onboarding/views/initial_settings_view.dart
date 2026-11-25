@@ -4,6 +4,7 @@ import 'package:koini/core/widgets/koini_ui.dart';
 import 'package:koini/features/onboarding/viewmodels/onboarding_viewmodel.dart';
 import 'package:koini/features/onboarding/views/onboarding_flow_view.dart';
 import 'package:koini/features/onboarding/views/welcome_view.dart';
+import 'package:koini/models/koini_data.dart';
 import 'package:koini/previews/preview_data.dart';
 import 'package:koini/previews/preview_host.dart';
 
@@ -23,9 +24,25 @@ class InitialSettingsView {
     KCard(
       bright: true,
       child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          caption('Periode uang saku'),
+          const Gap(6),
+          Wrap(
+            spacing: 7,
+            runSpacing: 6,
+            children: [
+              for (final period in AllowancePeriod.values)
+                Pill(
+                  period.label,
+                  selected: form.period == period,
+                  onTap: () => form.setPeriod(period),
+                ),
+            ],
+          ),
+          const Gap(10),
           KField(
-            'Uang saku mingguan',
+            'Uang saku ${form.period.label.toLowerCase()}',
             allowance,
             numeric: true,
             onChanged: form.changeAllowance,

@@ -29,6 +29,29 @@ class _HomeViewState extends ConsumerState<HomeView> {
   KoiniStore get store => widget.store;
   late final _provider = _viewModelProvider(widget);
   HomeViewModel get model => ref.read(_provider);
+  bool _checkedLeftover = false;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) => _checkLeftoverJajan());
+  }
+
+  Future<void> _checkLeftoverJajan() async {
+    if (_checkedLeftover || !mounted) return;
+    _checkedLeftover = true;
+    final moved = await model.sweepLeftoverJajan();
+    if (!mounted || moved <= 0) return;
+    await kSheet(
+      context,
+      'Sisa jajan masuk tabungan!',
+      'Hore! ${rupiah(moved)} sisa jajanmu periode lalu otomatis pindah ke toples Tabung. '
+          'Jangan lupa masukkan uang tunainya ke celengan, ya!',
+    );
+  }
+
+  String _capitalize(String text) =>
+      text.isEmpty ? text : '${text[0].toUpperCase()}${text.substring(1)}';
 
   @override
   Widget build(BuildContext context) {
@@ -112,7 +135,9 @@ class _HomeViewState extends ConsumerState<HomeView> {
                 crossAxisAlignment: WrapCrossAlignment.center,
                 children: [
                   heading('Uang sakuku', size: 20),
-                  caption('Minggu ini ${rupiah(model.allowance)}'),
+                  caption(
+                    '${_capitalize(model.allowancePeriod.currentLabel)} ${rupiah(model.allowance)}',
+                  ),
                 ],
               ),
             ),
@@ -178,7 +203,7 @@ class _HomeViewState extends ConsumerState<HomeView> {
           const Gap(8),
           KRow(
             'Terima uang saku',
-            'Catat setelah uang minggu ini diterima.',
+            'Catat setelah uang ${model.allowancePeriod.currentLabel} diterima.',
             color: KColors.gold,
             onTap: () async {
               final confirmed = await showDialog<bool>(
@@ -207,7 +232,9 @@ class _HomeViewState extends ConsumerState<HomeView> {
               if (context.mounted) {
                 note(
                   context,
-                  received ? 'Uang saku minggu ini tercatat.' : model.error!,
+                  received
+                      ? 'Uang saku ${model.allowancePeriod.currentLabel} tercatat.'
+                      : model.error!,
                 );
               }
             },
@@ -244,7 +271,9 @@ class _HomeViewState extends ConsumerState<HomeView> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    caption('Jajan terpakai minggu ini'),
+                    caption(
+                      'Jajan terpakai ${model.allowancePeriod.currentLabel}',
+                    ),
                     heading(rupiah(spent), size: 23, color: KColors.peach),
                     caption('dari jatah ${rupiah(model.jajanAllocation)}'),
                   ],

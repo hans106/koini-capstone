@@ -227,4 +227,34 @@ void main() {
     expect(plan.balanceAt(17), 1000000);
     expect(const SmartPlan(target: 100, saved: 120, weekly: 10).weeks, 0);
   });
+
+  test(
+    'allowance supports daily/monthly periods and idempotent sisa jajan sweep',
+    () async {
+      expect(
+        await store.setAllowance(20000, 10000, {
+          Jar.tabung: 8000,
+          Jar.jajan: 10000,
+          Jar.berbagi: 2000,
+        }, period: AllowancePeriod.daily),
+        isNull,
+      );
+      expect(store.allowancePeriod, AllowancePeriod.daily);
+      expect(await store.receiveAllowance(), isNull);
+      expect(
+        await store.record(kind: EntryKind.spend, amount: 4000, note: 'Roti'),
+        isNull,
+      );
+      expect(store.balance(Jar.jajan), 6000);
+
+      // Move clock to next day: leftover 6.000 moves from Jajan to Tabung once.
+      now = DateTime(2026, 11, 15, 8);
+      expect(await store.sweepLeftoverJajan(), 6000);
+      expect(store.balance(Jar.jajan), 0);
+      expect(store.balance(Jar.tabung), 14000);
+      // Calling again for the same ended period must be idempotent (0 moved).
+      expect(await store.sweepLeftoverJajan(), 0);
+      expect(store.balance(Jar.tabung), 14000);
+    },
+  );
 }
