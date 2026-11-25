@@ -135,6 +135,22 @@ class _ParentDashboardViewState extends ConsumerState<ParentDashboardView> {
         ),
         const Gap(7),
         KRow(
+          'Tantangan Hadiah',
+          'Buat tantangan & konfirmasi hadiah · Koini Plus',
+          onTap: () {
+            if (store.hasPlus) {
+              openPage(context, KRoute.parentChallenges);
+            } else {
+              plusGate(
+                context,
+                yearly: false,
+                parentAccess: () => showPlus(context),
+              );
+            }
+          },
+        ),
+        const Gap(7),
+        KRow(
           'Rapor bulanan',
           'Ringkasan belajar sebulan · Tahunan',
           onTap: () => openYearly(

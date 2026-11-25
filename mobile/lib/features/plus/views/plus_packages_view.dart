@@ -14,8 +14,10 @@ import 'package:koini/services/koini_store.dart';
 
 const _features = [
   ('Catat, impian, dan misi', Plan.free),
-  ('Tiga toples dan lencana', Plan.free),
+  ('Tiga toples, cek celengan, lencana', Plan.free),
   ('Ringkasan mingguan', Plan.free),
+  ('Tantangan Hadiah', Plan.monthly),
+  ('Bonus Tabungan', Plan.monthly),
   ('Catatan terstruktur', Plan.monthly),
   ('Rapor bulanan', Plan.yearly),
 ];

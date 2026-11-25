@@ -45,6 +45,7 @@ class KoiniStore extends ChangeNotifier {
   List<Dream> get dreams => List.unmodifiable(_data.dreams);
   List<MoneyEntry> get entries => List.unmodifiable(_data.entries.reversed);
   List<PiggyBankCheck> get piggyChecks => List.unmodifiable(_data.piggyChecks);
+  List<RewardChallenge> get challenges => List.unmodifiable(_data.challenges);
   List<Mission> get catalogMissions =>
       _remoteMissions.isNotEmpty ? _remoteMissions : fallback.missions;
   Map<String, int> get scores => Map.unmodifiable(_data.missionScores);
@@ -165,6 +166,11 @@ class KoiniStore extends ChangeNotifier {
           next.piggyChecks
             ..clear()
             ..addAll(snapshot.piggyChecks);
+        }
+        if (snapshot.challenges.isNotEmpty) {
+          next.challenges
+            ..clear()
+            ..addAll(snapshot.challenges);
         }
         if (snapshot.missionScores.isNotEmpty) {
           next.missionScores.addAll(snapshot.missionScores);
@@ -391,6 +397,7 @@ class KoiniStore extends ChangeNotifier {
           changes[destination] = amount;
         case EntryKind.allowance:
         case EntryKind.leftoverTransfer:
+        case EntryKind.challengeReward:
         case EntryKind.gift:
         case EntryKind.giftReturn:
           return 'Gunakan halaman penerimaan untuk mencatat ini.';
@@ -607,6 +614,142 @@ class KoiniStore extends ChangeNotifier {
       } catch (e) {
         debugPrint('Koini tutorial remote sync: ${e.runtimeType}');
       }
+    }
+    return null;
+  }
+
+  Future<String?> addChallenge({
+    required String title,
+    required ChallengeKind kind,
+    required String requirement,
+    required int reward,
+    Dream? dream,
+  }) async {
+    if (title.trim().isEmpty || requirement.trim().isEmpty) {
+      return 'Isi judul dan syarat tantangan terlebih dahulu.';
+    }
+    if (!_validAmount(reward)) {
+      return 'Nominal hadiah harus lebih dari Rp0.';
+    }
+    final localId =
+        'ch-${now.microsecondsSinceEpoch}-${_data.challenges.length}';
+    final created = RewardChallenge(
+      id: localId,
+      title: title.trim(),
+      kind: kind,
+      requirement: requirement.trim(),
+      reward: reward,
+      status: ChallengeStatus.active,
+      createdAt: now,
+      dreamId: dream?.id ?? activeDream?.id,
+    );
+    final error = await _change((next) {
+      next.challenges.insert(0, created);
+      return null;
+    });
+    if (error != null) return error;
+    final repo = remote;
+    final childId = _data.anakId;
+    if (repo != null && repo.isSignedIn && childId != null) {
+      try {
+        final dbId = await repo.insertChallenge(
+          anakId: childId,
+          challenge: created,
+        );
+        if (dbId != null) {
+          await _change((next) {
+            final idx = next.challenges.indexWhere((c) => c.id == localId);
+            if (idx >= 0) {
+              next.challenges[idx] = next.challenges[idx].copyWith(id: '$dbId');
+            }
+            return null;
+          });
+        }
+      } catch (e) {
+        debugPrint('Koini challenge insert remote sync: ${e.runtimeType}');
+      }
+    }
+    return null;
+  }
+
+  Future<String?> markChallengeWaiting(String challengeId) async {
+    final error = await _change((next) {
+      final idx = next.challenges.indexWhere((c) => c.id == challengeId);
+      if (idx < 0) return 'Tantangan tidak ditemukan.';
+      if (next.challenges[idx].status != ChallengeStatus.active) {
+        return 'Tantangan ini sudah selesai atau menunggu konfirmasi.';
+      }
+      next.challenges[idx] = next.challenges[idx].copyWith(
+        status: ChallengeStatus.waiting,
+      );
+      return null;
+    });
+    if (error != null) return error;
+    final repo = remote;
+    final dbId = int.tryParse(challengeId);
+    if (repo != null && repo.isSignedIn && dbId != null) {
+      try {
+        await repo.updateChallengeStatus(
+          tantanganId: dbId,
+          status: ChallengeStatus.waiting,
+        );
+      } catch (e) {
+        debugPrint('Koini challenge waiting sync: ${e.runtimeType}');
+      }
+    }
+    return null;
+  }
+
+  Future<String?> resolveChallenge(
+    String challengeId, {
+    required bool succeeded,
+  }) async {
+    MoneyEntry? rewardEntry;
+    final targetStatus = succeeded
+        ? ChallengeStatus.completed
+        : ChallengeStatus.failed;
+    final error = await _change((next) {
+      final idx = next.challenges.indexWhere((c) => c.id == challengeId);
+      if (idx < 0) return 'Tantangan tidak ditemukan.';
+      final item = next.challenges[idx];
+      if (item.status == ChallengeStatus.completed ||
+          item.status == ChallengeStatus.failed) {
+        return 'Tantangan ini sudah dikonfirmasi.';
+      }
+      next.challenges[idx] = item.copyWith(
+        status: targetStatus,
+        confirmedAt: now,
+      );
+      if (succeeded) {
+        rewardEntry = MoneyEntry(
+          kind: EntryKind.challengeReward,
+          date: now,
+          amount: item.reward,
+          note: 'Hadiah tantangan: ${item.title}',
+          changes: {Jar.tabung: item.reward},
+          dreamId: item.dreamId ?? activeDream?.id,
+        );
+        next.entries.add(rewardEntry!);
+        _study(next);
+      }
+      return null;
+    });
+    if (error != null) return error;
+    final repo = remote;
+    final dbId = int.tryParse(challengeId);
+    if (repo != null && repo.isSignedIn && dbId != null) {
+      try {
+        await repo.updateChallengeStatus(
+          tantanganId: dbId,
+          status: targetStatus,
+          confirmedAt: now,
+        );
+      } catch (e) {
+        debugPrint('Koini challenge resolve sync: ${e.runtimeType}');
+      }
+    }
+    if (rewardEntry case final entry?) {
+      await _syncEntryToRemote(entry);
     }
     return null;
   }

@@ -17,6 +17,7 @@ class RemoteSnapshot {
     this.dreams = const [],
     this.entries = const [],
     this.piggyChecks = const [],
+    this.challenges = const [],
     this.missionScores = const {},
   });
 
@@ -32,6 +33,7 @@ class RemoteSnapshot {
   final List<Dream> dreams;
   final List<MoneyEntry> entries;
   final List<PiggyBankCheck> piggyChecks;
+  final List<RewardChallenge> challenges;
   final Map<String, int> missionScores;
 }
 
@@ -84,6 +86,17 @@ abstract interface class KoiniRemoteRepository {
   Future<void> markTutorialDone({required int anakId});
 
   Future<void> activatePlan({required Plan plan});
+
+  Future<int?> insertChallenge({
+    required int anakId,
+    required RewardChallenge challenge,
+  });
+
+  Future<void> updateChallengeStatus({
+    required int tantanganId,
+    required ChallengeStatus status,
+    DateTime? confirmedAt,
+  });
 
   Future<int> runSisaJajan({
     required int anakId,
@@ -267,6 +280,32 @@ final class SupabaseKoiniRepository implements KoiniRemoteRepository {
         ),
     ];
 
+    final challengeRows = await _client
+        .from('tantangan_hadiah')
+        .select(
+          'tantangan_id, impian_id, judul, jenis, syarat, hadiah, status, dikonfirmasi_pada, created_at',
+        )
+        .eq('anak_id', anakId)
+        .order('created_at', ascending: false);
+    final challenges = [
+      for (final row in challengeRows)
+        RewardChallenge(
+          id: '${(row['tantangan_id'] as num).toInt()}',
+          title: row['judul'] as String,
+          kind: ChallengeKind.fromDb(row['jenis'] as String?),
+          requirement: row['syarat'] as String,
+          reward: (row['hadiah'] as num).toInt(),
+          status: ChallengeStatus.fromDb(row['status'] as String?),
+          createdAt: DateTime.parse(row['created_at'] as String).toLocal(),
+          dreamId: row['impian_id'] == null
+              ? null
+              : '${(row['impian_id'] as num).toInt()}',
+          confirmedAt: row['dikonfirmasi_pada'] == null
+              ? null
+              : DateTime.parse(row['dikonfirmasi_pada'] as String).toLocal(),
+        ),
+    ];
+
     final missionIdByDbId = {
       for (final m in loadedMissions)
         if (m.dbId != null) m.dbId!: m.id,
@@ -297,6 +336,7 @@ final class SupabaseKoiniRepository implements KoiniRemoteRepository {
       dreams: dreams,
       entries: entries,
       piggyChecks: checks,
+      challenges: challenges,
       missionScores: scores,
     );
   }
@@ -531,6 +571,45 @@ final class SupabaseKoiniRepository implements KoiniRemoteRepository {
   }
 
   @override
+  Future<int?> insertChallenge({
+    required int anakId,
+    required RewardChallenge challenge,
+  }) async {
+    if (!isSignedIn) return null;
+    final inserted = await _client
+        .from('tantangan_hadiah')
+        .insert({
+          'anak_id': anakId,
+          'impian_id': int.tryParse(challenge.dreamId ?? ''),
+          'judul': challenge.title.trim(),
+          'jenis': challenge.kind.dbValue,
+          'syarat': challenge.requirement.trim(),
+          'hadiah': challenge.reward,
+          'status': challenge.status.dbValue,
+        })
+        .select('tantangan_id')
+        .single();
+    return (inserted['tantangan_id'] as num).toInt();
+  }
+
+  @override
+  Future<void> updateChallengeStatus({
+    required int tantanganId,
+    required ChallengeStatus status,
+    DateTime? confirmedAt,
+  }) async {
+    if (!isSignedIn) return;
+    await _client
+        .from('tantangan_hadiah')
+        .update({
+          'status': status.dbValue,
+          if (confirmedAt != null)
+            'dikonfirmasi_pada': confirmedAt.toUtc().toIso8601String(),
+        })
+        .eq('tantangan_id', tantanganId);
+  }
+
+  @override
   Future<int> runSisaJajan({
     required int anakId,
     required DateTime periodStart,
@@ -559,6 +638,7 @@ final class SupabaseKoiniRepository implements KoiniRemoteRepository {
     EntryKind.spend => 'jajan',
     EntryKind.give => 'sumbangan',
     EntryKind.leftoverTransfer => 'sisa_jajan',
+    EntryKind.challengeReward => 'tantangan',
     EntryKind.gift => 'hadiah',
     EntryKind.bonus => 'bonus',
     EntryKind.save ||
@@ -580,6 +660,7 @@ final class SupabaseKoiniRepository implements KoiniRemoteRepository {
       'jajan' => EntryKind.spend,
       'sumbangan' => EntryKind.give,
       'sisa_jajan' => EntryKind.leftoverTransfer,
+      'tantangan' => EntryKind.challengeReward,
       'bonus' => EntryKind.bonus,
       'hadiah' => EntryKind.income,
       _ => isIn && jar == Jar.tabung ? EntryKind.save : EntryKind.income,

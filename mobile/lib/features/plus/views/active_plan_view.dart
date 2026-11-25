@@ -46,6 +46,14 @@ class _ActivePlanViewState extends ConsumerState<ActivePlanView> {
     button: 'Kembali ke Ringkasan',
     details: [
       KRow(
+        'Tantangan Hadiah',
+        'Buat tantangan nilai ujian, lomba, atau tugas rumah',
+        color: KColors.gold,
+        icon: const Icon(Icons.emoji_events_rounded, color: KColors.gold),
+        onTap: () => openPage(context, KRoute.parentChallenges),
+      ),
+      const Gap(8),
+      KRow(
         'Catatan terstruktur',
         'Rincian transaksi per kategori',
         color: KColors.gold,

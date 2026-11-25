@@ -40,12 +40,46 @@ enum EntryKind {
   give('Berbagi'),
   transfer('Pindah toples'),
   leftoverTransfer('Sisa jajan'),
+  challengeReward('Hadiah tantangan'),
   bonus('Bonus'),
   gift('Uang hadiah'),
   giftReturn('Pengembalian titipan');
 
   const EntryKind(this.label);
   final String label;
+}
+
+enum ChallengeKind {
+  examScore('nilai_ujian', 'Nilai ujian'),
+  competition('lomba', 'Lomba'),
+  chores('tugas_rumah', 'Tugas rumah'),
+  other('lainnya', 'Lainnya');
+
+  const ChallengeKind(this.dbValue, this.label);
+  final String dbValue;
+  final String label;
+
+  static ChallengeKind fromDb(String? value) => ChallengeKind.values.firstWhere(
+    (item) => item.dbValue == value || item.name == value,
+    orElse: () => ChallengeKind.other,
+  );
+}
+
+enum ChallengeStatus {
+  active('berjalan', 'Berjalan'),
+  waiting('menunggu_konfirmasi', 'Menunggu konfirmasi'),
+  completed('berhasil', 'Berhasil'),
+  failed('gagal', 'Belum berhasil');
+
+  const ChallengeStatus(this.dbValue, this.label);
+  final String dbValue;
+  final String label;
+
+  static ChallengeStatus fromDb(String? value) =>
+      ChallengeStatus.values.firstWhere(
+        (item) => item.dbValue == value || item.name == value,
+        orElse: () => ChallengeStatus.active,
+      );
 }
 
 enum Plan {
@@ -142,6 +176,71 @@ class PiggyBankCheck {
     recordedAmount: json['recordedAmount'] as int,
     checkedAt: DateTime.parse(json['checkedAt'] as String),
   );
+}
+
+class RewardChallenge {
+  const RewardChallenge({
+    required this.id,
+    required this.title,
+    required this.kind,
+    required this.requirement,
+    required this.reward,
+    required this.status,
+    required this.createdAt,
+    this.dreamId,
+    this.confirmedAt,
+  });
+
+  final String id;
+  final String title;
+  final ChallengeKind kind;
+  final String requirement;
+  final int reward;
+  final ChallengeStatus status;
+  final DateTime createdAt;
+  final String? dreamId;
+  final DateTime? confirmedAt;
+
+  RewardChallenge copyWith({
+    String? id,
+    ChallengeStatus? status,
+    DateTime? confirmedAt,
+  }) => RewardChallenge(
+    id: id ?? this.id,
+    title: title,
+    kind: kind,
+    requirement: requirement,
+    reward: reward,
+    status: status ?? this.status,
+    createdAt: createdAt,
+    dreamId: dreamId,
+    confirmedAt: confirmedAt ?? this.confirmedAt,
+  );
+
+  Map<String, dynamic> toJson() => {
+    'id': id,
+    'title': title,
+    'kind': kind.dbValue,
+    'requirement': requirement,
+    'reward': reward,
+    'status': status.dbValue,
+    'createdAt': createdAt.toIso8601String(),
+    'dreamId': dreamId,
+    'confirmedAt': confirmedAt?.toIso8601String(),
+  };
+
+  factory RewardChallenge.fromJson(Map<String, dynamic> json) =>
+      RewardChallenge(
+        id: json['id'] as String,
+        title: json['title'] as String,
+        kind: ChallengeKind.fromDb(json['kind'] as String?),
+        requirement: json['requirement'] as String,
+        reward: json['reward'] as int,
+        status: ChallengeStatus.fromDb(json['status'] as String?),
+        createdAt: DateTime.parse(json['createdAt'] as String),
+        dreamId: json['dreamId'] as String?,
+        confirmedAt: DateTime.tryParse(json['confirmedAt'] as String? ?? ''),
+      );
 }
 
 class MoneyEntry {
@@ -266,6 +365,7 @@ class KoiniData {
   final entries = <MoneyEntry>[];
   final dreams = <Dream>[];
   final piggyChecks = <PiggyBankCheck>[];
+  final challenges = <RewardChallenge>[];
   final missionScores = <String, int>{};
   final studyDays = <String>{};
 
@@ -292,6 +392,7 @@ class KoiniData {
     'entries': entries.map((entry) => entry.toJson()).toList(),
     'dreams': dreams.map((dream) => dream.toJson()).toList(),
     'piggyChecks': piggyChecks.map((check) => check.toJson()).toList(),
+    'challenges': challenges.map((item) => item.toJson()).toList(),
     'missionScores': missionScores,
     'studyDays': studyDays.toList(),
   };
@@ -331,6 +432,13 @@ class KoiniData {
     if (json['piggyChecks'] case final List rawChecks) {
       piggyChecks.addAll(
         rawChecks.cast<Map<String, dynamic>>().map(PiggyBankCheck.fromJson),
+      );
+    }
+    if (json['challenges'] case final List rawChallenges) {
+      challenges.addAll(
+        rawChallenges.cast<Map<String, dynamic>>().map(
+          RewardChallenge.fromJson,
+        ),
       );
     }
     missionScores.addAll((json['missionScores'] as Map).cast<String, int>());

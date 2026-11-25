@@ -31,6 +31,7 @@ import 'package:koini/features/plus/views/dated_goal_view.dart';
 import 'package:koini/features/plus/views/gift_release_view.dart';
 import 'package:koini/features/plus/views/gift_season_view.dart';
 import 'package:koini/features/plus/views/plus_packages_view.dart';
+import 'package:koini/features/plus/views/reward_challenge_view.dart';
 import 'package:koini/features/plus/views/smart_plan_result_view.dart';
 import 'package:koini/features/plus/views/smart_plan_view.dart';
 import 'package:koini/features/rewards/views/badge_gallery_view.dart';
@@ -67,6 +68,8 @@ enum KRoute {
   alertEmail('/orang-tua/peringatan'),
   plusPackages('/orang-tua/paket'),
   activePlan('/orang-tua/paket-aktif'),
+  challenges('/tantangan-hadiah'),
+  parentChallenges('/orang-tua/tantangan-hadiah'),
   chooseDatedDream('/orang-tua/pilih-target'),
   gifts('/orang-tua/hadiah'),
   releaseGift('/orang-tua/hadiah/pengembalian'),
@@ -150,7 +153,10 @@ final routerProvider = Provider<GoRouter>((ref) {
         return _childHome;
       }
 
-      if (path == KRoute.structuredHistory.path && !store.hasPlus) {
+      if ((path == KRoute.structuredHistory.path ||
+              path == KRoute.challenges.path ||
+              path == KRoute.parentChallenges.path) &&
+          !store.hasPlus) {
         return _childHome;
       }
       if (path == KRoute.monthlyReport.path && !store.hasYearly) {
@@ -318,6 +324,11 @@ Widget _screen(
     KRoute.activePlan => ActivePlanView(
       store: store,
       yearlyFeatures: yearlyPlanActions(context, store),
+    ),
+    KRoute.challenges => RewardChallengeView(store: store),
+    KRoute.parentChallenges => RewardChallengeView(
+      store: store,
+      parentMode: true,
     ),
     KRoute.chooseDatedDream => ChooseDatedDreamView(store: store),
     KRoute.gifts => GiftSeasonView(store: store),

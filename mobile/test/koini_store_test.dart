@@ -275,4 +275,33 @@ void main() {
     expect(await store.completeTutorial(), isNull);
     expect(store.tutorialDone, isTrue);
   });
+
+  test(
+    'reward challenge lifecycle awards tabung and dream progress on confirm',
+    () async {
+      expect(await store.addDream('Sepeda', 1, 500000, 20000), isNull);
+      final dream = store.dreams.single;
+      expect(
+        await store.addChallenge(
+          title: 'Nilai ujian 90',
+          kind: ChallengeKind.examScore,
+          requirement: 'Nilai matematika minimal 90',
+          reward: 15000,
+          dream: dream,
+        ),
+        isNull,
+      );
+      final challenge = store.challenges.single;
+      expect(challenge.status, ChallengeStatus.active);
+      expect(await store.markChallengeWaiting(challenge.id), isNull);
+      expect(store.challenges.single.status, ChallengeStatus.waiting);
+      expect(
+        await store.resolveChallenge(challenge.id, succeeded: true),
+        isNull,
+      );
+      expect(store.challenges.single.status, ChallengeStatus.completed);
+      expect(store.balance(Jar.tabung), 15000);
+      expect(store.savedFor(dream), 15000);
+    },
+  );
 }

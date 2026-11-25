@@ -34,6 +34,7 @@ import 'package:koini/features/plus/views/dated_goal_view.dart';
 import 'package:koini/features/plus/views/gift_release_view.dart';
 import 'package:koini/features/plus/views/gift_season_view.dart';
 import 'package:koini/features/plus/views/plus_packages_view.dart';
+import 'package:koini/features/plus/views/reward_challenge_view.dart';
 import 'package:koini/features/plus/views/smart_plan_result_view.dart';
 import 'package:koini/features/plus/views/smart_plan_view.dart';
 import 'package:koini/features/rewards/views/badge_gallery_view.dart';
@@ -86,6 +87,8 @@ const allPreviews = <String, Widget Function()>{
   'giftReleasePreview': giftReleasePreview,
   'giftSeasonPreview': giftSeasonPreview,
   'plusPackagesPreview': plusPackagesPreview,
+  'rewardChallengePreview': rewardChallengePreview,
+  'childRewardChallengePreview': childRewardChallengePreview,
   'smartPlanResultPreview': smartPlanResultPreview,
   'smartPlanPreview': smartPlanPreview,
   'badgeGalleryPreview': badgeGalleryPreview,
