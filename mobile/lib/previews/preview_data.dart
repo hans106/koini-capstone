@@ -36,7 +36,8 @@ Future<KoiniStore> createPreviewStore(PreviewScenario scenario) async {
     data
       ..name = 'Raka'
       ..email = 'ayah.bunda@example.test'
-      ..pin = previewPin;
+      ..pin = previewPin
+      ..tutorialDone = true;
     if (scenario == PreviewScenario.plus) {
       data
         ..plan = Plan.yearly

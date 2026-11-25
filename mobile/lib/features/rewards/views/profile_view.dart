@@ -6,6 +6,7 @@ import 'package:koini/app/app_router.dart';
 import 'package:koini/app/child_shell.dart';
 import 'package:koini/core/theme/koini_theme.dart';
 import 'package:koini/core/widgets/koini_ui.dart';
+import 'package:koini/features/home/widgets/first_time_guide.dart';
 import 'package:koini/features/rewards/viewmodels/rewards_viewmodel.dart';
 import 'package:koini/features/rewards/widgets/badge_icon.dart';
 import 'package:koini/previews/preview_data.dart';
@@ -107,6 +108,12 @@ class _ProfileViewState extends ConsumerState<ProfileView> {
           'Galeri lencana',
           'Lihat pencapaian dan tantangan baru',
           onTap: gallery,
+        ),
+        const Gap(8),
+        KRow(
+          'Panduan Koini',
+          'Lihat lagi cara pakai Koini (4 langkah)',
+          onTap: () => showFirstTimeGuide(context),
         ),
         const Gap(8),
         KRow(

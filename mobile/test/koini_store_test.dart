@@ -269,4 +269,10 @@ void main() {
       expect(store.piggyChecks.first.difference, -5000);
     },
   );
+
+  test('completing first-time guide updates tutorialDone state', () async {
+    expect(store.tutorialDone, isFalse);
+    expect(await store.completeTutorial(), isNull);
+    expect(store.tutorialDone, isTrue);
+  });
 }

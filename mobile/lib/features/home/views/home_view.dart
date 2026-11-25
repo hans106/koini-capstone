@@ -8,6 +8,7 @@ import 'package:koini/core/theme/koini_theme.dart';
 import 'package:koini/core/widgets/koini_ui.dart';
 import 'package:koini/features/dreams/widgets/dream_image.dart';
 import 'package:koini/features/home/viewmodels/home_viewmodel.dart';
+import 'package:koini/features/home/widgets/first_time_guide.dart';
 import 'package:koini/models/koini_data.dart';
 import 'package:koini/previews/preview_data.dart';
 import 'package:koini/previews/preview_host.dart';
@@ -66,6 +67,17 @@ class _HomeViewState extends ConsumerState<HomeView> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
+        if (!model.tutorialDone) ...[
+          KRow(
+            'Panduan Koini (4 langkah)',
+            'Baru pertama kali buka? Ketuk untuk melihat cara pakai.',
+            color: KColors.gold,
+            icon: const Icon(Icons.auto_awesome, color: KColors.gold),
+            onTap: () =>
+                showFirstTimeGuide(context, onComplete: model.completeTutorial),
+          ),
+          const Gap(10),
+        ],
         KCard(
           bright: true,
           onTap: dream == null
