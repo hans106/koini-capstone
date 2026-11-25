@@ -12,6 +12,7 @@ import 'package:koini/features/dreams/views/create_dream_view.dart';
 import 'package:koini/features/dreams/views/dream_detail_view.dart';
 import 'package:koini/features/home/views/weekly_summary_view.dart';
 import 'package:koini/features/jars/views/jar_detail_view.dart';
+import 'package:koini/features/jars/views/piggy_check_view.dart';
 import 'package:koini/features/missions/views/koini_story_view.dart';
 import 'package:koini/features/missions/views/mission_quiz_view.dart';
 import 'package:koini/features/onboarding/views/onboarding_flow_view.dart';
@@ -45,6 +46,7 @@ enum KRoute {
   welcome('/selamat-datang'),
   onboarding('/pengaturan-awal'),
   jar('/toples/:jar'),
+  piggyCheck('/cek-celengan'),
   createDream('/impian/baru'),
   dream('/impian/:id'),
   transaction('/transaksi/baru'),
@@ -259,6 +261,7 @@ Widget _screen(
     KRoute.welcome => WelcomeView(store: store),
     KRoute.onboarding => OnboardingFlowView(store: store),
     KRoute.jar when jar != null => JarDetailView(store: store, jar: jar),
+    KRoute.piggyCheck => PiggyCheckView(store: store),
     KRoute.createDream => CreateDreamView(store: store),
     KRoute.dream when dream != null => DreamDetailView(
       store: store,

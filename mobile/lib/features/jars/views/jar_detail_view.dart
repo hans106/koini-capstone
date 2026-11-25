@@ -89,6 +89,12 @@ class _JarDetailViewState extends ConsumerState<JarDetailView> {
             ),
           ),
         ),
+        const Gap(8),
+        KRow(
+          'Cek celengan',
+          'Cocokkan uang fisik dengan catatan Koini.',
+          onTap: () => openPage(context, KRoute.piggyCheck),
+        ),
         const Gap(),
         heading('Riwayat toples', size: 19),
         const Gap(7),

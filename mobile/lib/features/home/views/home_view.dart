@@ -290,6 +290,13 @@ class _HomeViewState extends ConsumerState<HomeView> {
         ),
         const Gap(9),
         KRow(
+          'Cek celengan',
+          'Hitung uang tunaimu dan cocokkan dengan catatan.',
+          color: KColors.mint,
+          onTap: () => openPage(context, KRoute.piggyCheck),
+        ),
+        const Gap(9),
+        KRow(
           'Minggu ini',
           'Lihat ringkasan minggumu.',
           onTap: () => openPage(context, KRoute.weeklySummary),

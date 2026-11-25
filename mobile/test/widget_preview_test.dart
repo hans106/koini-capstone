@@ -9,6 +9,7 @@ import 'package:koini/features/dreams/views/dream_list_view.dart';
 import 'package:koini/features/home/views/home_view.dart';
 import 'package:koini/features/home/views/weekly_summary_view.dart';
 import 'package:koini/features/jars/views/jar_detail_view.dart';
+import 'package:koini/features/jars/views/piggy_check_view.dart';
 import 'package:koini/features/missions/mission_content.dart';
 import 'package:koini/features/missions/views/koini_story_view.dart';
 import 'package:koini/features/missions/views/mission_map_view.dart';
@@ -58,6 +59,7 @@ const allPreviews = <String, Widget Function()>{
   'tabungJarPreview': tabungJarPreview,
   'jajanJarPreview': jajanJarPreview,
   'berbagiJarPreview': berbagiJarPreview,
+  'piggyCheckPreview': piggyCheckPreview,
   'storyPreview': storyPreview,
   'missionMapPreview': missionMapPreview,
   'completedMissionsPreview': completedMissionsPreview,

@@ -257,4 +257,16 @@ void main() {
       expect(store.balance(Jar.tabung), 14000);
     },
   );
+
+  test(
+    'piggy bank check records physical cash and difference accurately',
+    () async {
+      expect(await store.receiveAllowance(), isNull);
+      expect(await store.recordPiggyBankCheck(95000), isNull);
+      expect(store.piggyChecks, hasLength(1));
+      expect(store.piggyChecks.first.physicalAmount, 95000);
+      expect(store.piggyChecks.first.recordedAmount, 100000);
+      expect(store.piggyChecks.first.difference, -5000);
+    },
+  );
 }
