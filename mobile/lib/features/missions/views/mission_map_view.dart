@@ -43,9 +43,12 @@ class _MissionMapViewState extends ConsumerState<MissionMapView> {
         heading('Jalur petualangan', size: 19),
         const Gap(6),
         SizedBox(
-          height: 355,
+          height: model.catalog.length * 88.0,
           child: CustomPaint(
-            painter: MissionTrail(progress: model.completed),
+            painter: MissionTrail(
+              progress: model.completed,
+              count: model.catalog.length,
+            ),
             child: Column(
               children: [
                 for (final (index, stop) in model.stops.indexed)

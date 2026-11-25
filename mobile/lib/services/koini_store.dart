@@ -2,27 +2,35 @@ import 'dart:convert';
 import 'dart:math';
 
 import 'package:flutter/foundation.dart';
+import 'package:koini/features/missions/mission_content.dart' as fallback;
+import 'package:koini/models/mission.dart';
 
 import '../models/koini_data.dart';
 import 'koini_storage.dart';
+import 'supabase_koini_repository.dart';
 
 class KoiniStore extends ChangeNotifier {
-  KoiniStore(this.storage, {DateTime Function()? clock})
+  KoiniStore(this.storage, {DateTime Function()? clock, this.remote})
     : _clock = clock ?? DateTime.now;
 
   final KoiniStorage storage;
+  final KoiniRemoteRepository? remote;
   final DateTime Function() _clock;
   KoiniData _data = KoiniData();
+  List<Mission> _remoteMissions = const [];
   bool _saving = false;
   int _pinFailures = 0;
   DateTime? _pinLockedUntil;
 
   DateTime get now => _clock();
   bool get hasProfile => _data.hasProfile;
+  bool get isRemoteConnected => remote != null && remote!.isSignedIn;
+  int? get anakId => _data.anakId;
   String get name => _data.name;
   String get email => _data.email;
   int get age => _data.age;
   int get allowance => _data.allowance;
+  AllowancePeriod get allowancePeriod => _data.allowancePeriod;
   int get dailyLimit => _data.dailyLimit;
   Map<Jar, int> get split => Map.unmodifiable(_data.split);
   Plan get plan => _data.plan;
@@ -31,10 +39,14 @@ class KoiniStore extends ChangeNotifier {
   bool get reminders => _data.reminders;
   bool get alerts => _data.emailAlerts;
   bool get stories => _data.stories;
+  bool get tutorialDone => _data.tutorialDone;
   int get rating => _data.rating;
   int get heldGift => _data.heldGiftMoney;
   List<Dream> get dreams => List.unmodifiable(_data.dreams);
   List<MoneyEntry> get entries => List.unmodifiable(_data.entries.reversed);
+  List<PiggyBankCheck> get piggyChecks => List.unmodifiable(_data.piggyChecks);
+  List<Mission> get catalogMissions =>
+      _remoteMissions.isNotEmpty ? _remoteMissions : fallback.missions;
   Map<String, int> get scores => Map.unmodifiable(_data.missionScores);
   int get stars => scores.values.fold(0, (sum, score) => sum + 3 * score);
   int get streak {
@@ -86,13 +98,17 @@ class KoiniStore extends ChangeNotifier {
       dreams.firstOrNull;
   List<MoneyEntry> get thisWeek =>
       entries.where((entry) => !entry.date.isBefore(weekStart(now))).toList();
+  List<MoneyEntry> get currentPeriodEntries => entries
+      .where((entry) => !entry.date.isBefore(periodStart(now, allowancePeriod)))
+      .toList();
   List<MoneyEntry> get thisMonth => entries
       .where(
         (entry) => entry.date.year == now.year && entry.date.month == now.month,
       )
       .toList();
-  bool get receivedThisWeek =>
-      thisWeek.any((entry) => entry.kind == EntryKind.allowance);
+  bool get receivedThisPeriod =>
+      currentPeriodEntries.any((entry) => entry.kind == EntryKind.allowance);
+  bool get receivedThisWeek => receivedThisPeriod;
   int get spentToday => entries
       .where(
         (entry) =>
@@ -110,6 +126,56 @@ class KoiniStore extends ChangeNotifier {
       _data = KoiniData.fromJson(jsonDecode(saved) as Map<String, dynamic>);
     }
     notifyListeners();
+    await syncFromRemote();
+  }
+
+  Future<void> syncFromRemote() async {
+    final repo = remote;
+    if (repo == null || !repo.isSignedIn) return;
+    try {
+      final snapshot = await repo.fetchFamilySnapshot();
+      if (snapshot == null) return;
+      if (snapshot.missions.isNotEmpty) {
+        _remoteMissions = List.unmodifiable(snapshot.missions);
+      }
+      if (snapshot.anakId != null && snapshot.childName != null) {
+        final next = KoiniData.fromJson(_data.toJson());
+        next
+          ..anakId = snapshot.anakId
+          ..name = snapshot.childName!
+          ..age = snapshot.age ?? next.age
+          ..tutorialDone = snapshot.tutorialDone ?? next.tutorialDone
+          ..allowance = snapshot.allowance ?? next.allowance
+          ..allowancePeriod = snapshot.period ?? next.allowancePeriod
+          ..plan = snapshot.plan ?? next.plan;
+        if (snapshot.split != null) {
+          next.split = Map.of(snapshot.split!);
+        }
+        if (snapshot.dreams.isNotEmpty || next.dreams.isEmpty) {
+          next.dreams
+            ..clear()
+            ..addAll(snapshot.dreams);
+        }
+        if (snapshot.entries.isNotEmpty || next.entries.isEmpty) {
+          next.entries
+            ..clear()
+            ..addAll(snapshot.entries);
+        }
+        if (snapshot.piggyChecks.isNotEmpty) {
+          next.piggyChecks
+            ..clear()
+            ..addAll(snapshot.piggyChecks);
+        }
+        if (snapshot.missionScores.isNotEmpty) {
+          next.missionScores.addAll(snapshot.missionScores);
+        }
+        await storage.write(jsonEncode(next.toJson()));
+        _data = next;
+      }
+      notifyListeners();
+    } catch (error) {
+      debugPrint('Koini remote sync: ${error.runtimeType}');
+    }
   }
 
   String? checkPin(String pin) {
@@ -138,31 +204,58 @@ class KoiniStore extends ChangeNotifier {
     required int limit,
     required bool reminders,
     required Map<Jar, int> split,
-  }) => _change((next) {
-    if (next.hasProfile) return 'Profil sudah dibuat.';
-    if (name.trim().isEmpty || age < 6 || age > 12) {
-      return 'Periksa nama dan usia.';
+    AllowancePeriod period = AllowancePeriod.weekly,
+  }) async {
+    final error = await _change((next) {
+      if (next.hasProfile) return 'Profil sudah dibuat.';
+      if (name.trim().isEmpty || age < 6 || age > 12) {
+        return 'Periksa nama dan usia.';
+      }
+      if (!RegExp(r'^\d{6}$').hasMatch(pin)) {
+        return 'PIN harus terdiri dari 6 angka.';
+      }
+      next
+        ..name = name.trim()
+        ..age = age
+        ..email = email.trim()
+        ..pin = pin
+        ..allowance = allowance
+        ..allowancePeriod = period
+        ..dailyLimit = limit
+        ..reminders = reminders;
+      if (!_validAmount(allowance) ||
+          !_validAmount(limit) ||
+          Jar.values.any((jar) => (split[jar] ?? -1) < 0) ||
+          split.values.fold<int>(0, (a, b) => a + b) != allowance) {
+        return 'Bagi seluruh uang saku ke tiga toples.';
+      }
+      next.split = Map.of(split);
+      return null;
+    });
+    if (error != null) return error;
+    final repo = remote;
+    if (repo != null && repo.isSignedIn) {
+      try {
+        final createdId = await repo.saveOnboarding(
+          parentName: email.trim().isEmpty ? 'Ayah/Bunda' : email.trim(),
+          childName: name.trim(),
+          age: age,
+          allowance: allowance,
+          period: period,
+          split: split,
+        );
+        if (createdId != null) {
+          await _change((next) {
+            next.anakId = createdId;
+            return null;
+          });
+        }
+      } catch (e) {
+        debugPrint('Koini onboarding remote sync: ${e.runtimeType}');
+      }
     }
-    if (!RegExp(r'^\d{6}$').hasMatch(pin)) {
-      return 'PIN harus terdiri dari 6 angka.';
-    }
-    next
-      ..name = name.trim()
-      ..age = age
-      ..email = email.trim()
-      ..pin = pin
-      ..allowance = allowance
-      ..dailyLimit = limit
-      ..reminders = reminders;
-    if (!_validAmount(allowance) ||
-        !_validAmount(limit) ||
-        Jar.values.any((jar) => (split[jar] ?? -1) < 0) ||
-        split.values.fold<int>(0, (a, b) => a + b) != allowance) {
-      return 'Bagi seluruh uang saku ke tiga toples.';
-    }
-    next.split = Map.of(split);
     return null;
-  });
+  }
 
   static Map<Jar, int> defaultSplit(int amount) => {
     Jar.tabung: amount * 40 ~/ 100,
@@ -170,34 +263,65 @@ class KoiniStore extends ChangeNotifier {
     Jar.jajan: amount - amount * 40 ~/ 100 - amount * 10 ~/ 100,
   };
 
-  Future<String?> setAllowance(int amount, int limit, Map<Jar, int> split) =>
-      _change((next) {
-        if (!_validAmount(amount) ||
-            !_validAmount(limit) ||
-            Jar.values.any((jar) => (split[jar] ?? -1) < 0) ||
-            split.values.fold<int>(0, (a, b) => a + b) != amount) {
-          return 'Bagi seluruh uang saku ke tiga toples.';
-        }
-        next
-          ..allowance = amount
-          ..dailyLimit = limit
-          ..split = Map.of(split);
-        return null;
-      });
-
-  Future<String?> receiveAllowance() => _change((next) {
-    if (receivedThisWeek) return 'Uang saku minggu ini sudah tercatat.';
-    next.entries.add(
-      MoneyEntry(
-        kind: EntryKind.allowance,
-        amount: allowance,
-        date: now,
-        note: 'Uang saku mingguan',
-        changes: Map.unmodifiable(split),
-      ),
-    );
+  Future<String?> setAllowance(
+    int amount,
+    int limit,
+    Map<Jar, int> split, {
+    AllowancePeriod? period,
+  }) async {
+    final nextPeriod = period ?? _data.allowancePeriod;
+    final error = await _change((next) {
+      if (!_validAmount(amount) ||
+          !_validAmount(limit) ||
+          Jar.values.any((jar) => (split[jar] ?? -1) < 0) ||
+          split.values.fold<int>(0, (a, b) => a + b) != amount) {
+        return 'Bagi seluruh uang saku ke tiga toples.';
+      }
+      next
+        ..allowance = amount
+        ..allowancePeriod = nextPeriod
+        ..dailyLimit = limit
+        ..split = Map.of(split);
+      return null;
+    });
+    if (error != null) return error;
+    final repo = remote;
+    final id = _data.anakId;
+    if (repo != null && repo.isSignedIn && id != null) {
+      try {
+        await repo.saveAllowanceSetting(
+          anakId: id,
+          allowance: amount,
+          period: nextPeriod,
+          split: split,
+          effectiveDate: now,
+        );
+      } catch (e) {
+        debugPrint('Koini allowance remote sync: ${e.runtimeType}');
+      }
+    }
     return null;
-  });
+  }
+
+  Future<String?> receiveAllowance() async {
+    final entry = MoneyEntry(
+      kind: EntryKind.allowance,
+      amount: allowance,
+      date: now,
+      note: 'Uang saku ${allowancePeriod.label.toLowerCase()}',
+      changes: Map.unmodifiable(split),
+    );
+    final error = await _change((next) {
+      if (receivedThisPeriod) {
+        return 'Uang saku ${allowancePeriod.currentLabel} sudah tercatat.';
+      }
+      next.entries.add(entry);
+      return null;
+    });
+    if (error != null) return error;
+    await _syncEntryToRemote(entry);
+    return null;
+  }
 
   Future<String?> record({
     required EntryKind kind,
@@ -207,68 +331,71 @@ class KoiniStore extends ChangeNotifier {
     Jar? destination,
     Dream? dream,
     String? category,
-  }) => _change((next) {
-    if (!_validAmount(amount)) {
-      return 'Nominalnya masih kosong atau terlalu besar.';
-    }
-    final changes = <Jar, int>{};
-    switch (kind) {
-      case EntryKind.spend:
-        if (amount > balance(Jar.jajan)) {
-          return 'Uang di toples Jajan tidak cukup.';
-        }
-        if (amount + spentToday > dailyLimit) {
-          return 'Nominal melebihi batas jajan harian.';
-        }
-        changes[Jar.jajan] = -amount;
-      case EntryKind.give:
-        if (amount > balance(Jar.berbagi)) {
-          return 'Uang di toples Berbagi tidak cukup.';
-        }
-        changes[Jar.berbagi] = -amount;
-      case EntryKind.save:
-        if (dream != null && !next.dreams.any((item) => item.id == dream.id)) {
-          return 'Impian ini tidak ditemukan.';
-        }
-        if (dream != null && amount > remaining(dream)) {
-          return 'Nominal melebihi sisa target impian.';
-        }
-        if (source == Jar.tabung) {
-          if (dream == null || amount > availableSavings) {
-            return 'Tabungan yang belum dibagi tidak cukup.';
+  }) async {
+    MoneyEntry? created;
+    final error = await _change((next) {
+      if (!_validAmount(amount)) {
+        return 'Nominalnya masih kosong atau terlalu besar.';
+      }
+      final changes = <Jar, int>{};
+      switch (kind) {
+        case EntryKind.spend:
+          if (amount > balance(Jar.jajan)) {
+            return 'Uang di toples Jajan tidak cukup.';
           }
-        } else if (source != null) {
-          if (amount > balance(source)) {
-            return 'Uang di toples ${source.label} tidak cukup.';
+          if (amount + spentToday > dailyLimit) {
+            return 'Nominal melebihi batas jajan harian.';
+          }
+          changes[Jar.jajan] = -amount;
+        case EntryKind.give:
+          if (amount > balance(Jar.berbagi)) {
+            return 'Uang di toples Berbagi tidak cukup.';
+          }
+          changes[Jar.berbagi] = -amount;
+        case EntryKind.save:
+          if (dream != null &&
+              !next.dreams.any((item) => item.id == dream.id)) {
+            return 'Impian ini tidak ditemukan.';
+          }
+          if (dream != null && amount > remaining(dream)) {
+            return 'Nominal melebihi sisa target impian.';
+          }
+          if (source == Jar.tabung) {
+            if (dream == null || amount > availableSavings) {
+              return 'Tabungan yang belum dibagi tidak cukup.';
+            }
+          } else if (source != null) {
+            if (amount > balance(source)) {
+              return 'Uang di toples ${source.label} tidak cukup.';
+            }
+            changes[source] = -amount;
+            changes[Jar.tabung] = amount;
+          } else {
+            changes[Jar.tabung] = amount;
+          }
+        case EntryKind.transfer:
+          if (source == null || destination == null || source == destination) {
+            return 'Pilih dua toples berbeda.';
+          }
+          final available = source == Jar.tabung
+              ? availableSavings
+              : balance(source);
+          if (amount > available) {
+            return 'Uang yang tersedia di toples ${source.label} tidak cukup.';
           }
           changes[source] = -amount;
-          changes[Jar.tabung] = amount;
-        } else {
-          changes[Jar.tabung] = amount;
-        }
-      case EntryKind.transfer:
-        if (source == null || destination == null || source == destination) {
-          return 'Pilih dua toples berbeda.';
-        }
-        final available = source == Jar.tabung
-            ? availableSavings
-            : balance(source);
-        if (amount > available) {
-          return 'Uang yang tersedia di toples ${source.label} tidak cukup.';
-        }
-        changes[source] = -amount;
-        changes[destination] = amount;
-      case EntryKind.income:
-      case EntryKind.bonus:
-        if (destination == null) return 'Pilih toples tujuan.';
-        changes[destination] = amount;
-      case EntryKind.allowance:
-      case EntryKind.gift:
-      case EntryKind.giftReturn:
-        return 'Gunakan halaman penerimaan untuk mencatat ini.';
-    }
-    next.entries.add(
-      MoneyEntry(
+          changes[destination] = amount;
+        case EntryKind.income:
+        case EntryKind.bonus:
+          if (destination == null) return 'Pilih toples tujuan.';
+          changes[destination] = amount;
+        case EntryKind.allowance:
+        case EntryKind.leftoverTransfer:
+        case EntryKind.gift:
+        case EntryKind.giftReturn:
+          return 'Gunakan halaman penerimaan untuk mencatat ini.';
+      }
+      created = MoneyEntry(
         kind: kind,
         date: now,
         amount: amount,
@@ -276,11 +403,17 @@ class KoiniStore extends ChangeNotifier {
         changes: Map.unmodifiable(changes),
         dreamId: kind == EntryKind.save ? dream?.id : null,
         category: category,
-      ),
-    );
-    _study(next);
+      );
+      next.entries.add(created!);
+      _study(next);
+      return null;
+    });
+    if (error != null) return error;
+    if (created case final entry?) {
+      await _syncEntryToRemote(entry);
+    }
     return null;
-  });
+  }
 
   Future<String?> recordGift(
     int amount,
@@ -324,27 +457,70 @@ class KoiniStore extends ChangeNotifier {
     return null;
   });
 
-  Future<String?> addDream(String name, int image, int target, int weekly) =>
-      _change((next) {
-        if (image < 0 ||
-            image >= 6 ||
-            name.trim().isEmpty ||
-            !_validAmount(target) ||
-            !_validAmount(weekly)) {
-          return 'Isi nama, harga target, dan tabungan mingguan.';
-        }
-        next.dreams.add(
-          Dream(
-            id: '${now.microsecondsSinceEpoch}-${next.dreams.length}',
-            name: name.trim(),
-            image: image,
-            target: target,
-            weekly: weekly,
-          ),
+  Future<String?> addDream(
+    String name,
+    int image,
+    int target,
+    int weekly,
+  ) async {
+    final isPrimary = _data.dreams.isEmpty;
+    String localId = '';
+    final error = await _change((next) {
+      if (image < 0 ||
+          image >= 6 ||
+          name.trim().isEmpty ||
+          !_validAmount(target) ||
+          !_validAmount(weekly)) {
+        return 'Isi nama, harga target, dan tabungan mingguan.';
+      }
+      localId = '${now.microsecondsSinceEpoch}-${next.dreams.length}';
+      next.dreams.add(
+        Dream(
+          id: localId,
+          name: name.trim(),
+          image: image,
+          target: target,
+          weekly: weekly,
+        ),
+      );
+      _study(next);
+      return null;
+    });
+    if (error != null) return error;
+    final repo = remote;
+    final id = _data.anakId;
+    if (repo != null && repo.isSignedIn && id != null) {
+      try {
+        final dbDreamId = await repo.insertDream(
+          anakId: id,
+          name: name,
+          imageIndex: image,
+          target: target,
+          isPrimary: isPrimary,
         );
-        _study(next);
-        return null;
-      });
+        if (dbDreamId != null) {
+          await _change((next) {
+            final idx = next.dreams.indexWhere((d) => d.id == localId);
+            if (idx >= 0) {
+              final old = next.dreams[idx];
+              next.dreams[idx] = Dream(
+                id: '$dbDreamId',
+                name: old.name,
+                image: old.image,
+                target: old.target,
+                weekly: old.weekly,
+                deadline: old.deadline,
+              );
+            }
+            return null;
+          });
+        }
+      } catch (e) {
+        debugPrint('Koini dream remote sync: ${e.runtimeType}');
+      }
+    }
+    return null;
+  }
 
   Future<String?> setDreamPlan(Dream dream, int weekly, {DateTime? deadline}) =>
       _change((next) {
@@ -359,12 +535,137 @@ class KoiniStore extends ChangeNotifier {
         return null;
       });
 
-  Future<String?> completeMission(String id, int correct) => _change((next) {
-    if (correct < 0 || correct > 5) return 'Skor misi tidak valid.';
-    next.missionScores[id] = max(next.missionScores[id] ?? 0, correct);
-    _study(next);
+  Future<String?> completeMission(String id, int correct) async {
+    final error = await _change((next) {
+      if (correct < 0 || correct > 5) return 'Skor misi tidak valid.';
+      next.missionScores[id] = max(next.missionScores[id] ?? 0, correct);
+      _study(next);
+      return null;
+    });
+    if (error != null) return error;
+    final repo = remote;
+    final childId = _data.anakId;
+    final mission = catalogMissions.where((item) => item.id == id).firstOrNull;
+    if (repo != null &&
+        repo.isSignedIn &&
+        childId != null &&
+        mission?.dbId != null) {
+      try {
+        await repo.saveMissionProgress(
+          anakId: childId,
+          misiId: mission!.dbId!,
+          correctCount: _data.missionScores[id] ?? correct,
+          stars: 3 * (_data.missionScores[id] ?? correct),
+          streakHari: streak,
+        );
+      } catch (e) {
+        debugPrint('Koini mission remote sync: ${e.runtimeType}');
+      }
+    }
     return null;
-  });
+  }
+
+  Future<String?> recordPiggyBankCheck(int physicalAmount) async {
+    if (physicalAmount < 0 || physicalAmount > rupiahLimit) {
+      return 'Masukkan jumlah uang tunai yang valid.';
+    }
+    final check = PiggyBankCheck(
+      physicalAmount: physicalAmount,
+      recordedAmount: total,
+      checkedAt: now,
+    );
+    final error = await _change((next) {
+      next.piggyChecks.insert(0, check);
+      _study(next);
+      return null;
+    });
+    if (error != null) return error;
+    final repo = remote;
+    final childId = _data.anakId;
+    if (repo != null && repo.isSignedIn && childId != null) {
+      try {
+        await repo.savePiggyBankCheck(anakId: childId, check: check);
+      } catch (e) {
+        debugPrint('Koini piggy check remote sync: ${e.runtimeType}');
+      }
+    }
+    return null;
+  }
+
+  Future<String?> completeTutorial() async {
+    if (_data.tutorialDone) return null;
+    final error = await _change((next) {
+      next.tutorialDone = true;
+      return null;
+    });
+    if (error != null) return error;
+    final repo = remote;
+    final childId = _data.anakId;
+    if (repo != null && repo.isSignedIn && childId != null) {
+      try {
+        await repo.markTutorialDone(anakId: childId);
+      } catch (e) {
+        debugPrint('Koini tutorial remote sync: ${e.runtimeType}');
+      }
+    }
+    return null;
+  }
+
+  /// Idempotent leftover-jajan sweep for the just-completed allowance period.
+  /// Returns the rupiah amount moved from Jajan to Tabung, or 0 if nothing moved.
+  Future<int> sweepLeftoverJajan() async {
+    if (!hasProfile) return 0;
+    final prev = previousPeriodRange(now, allowancePeriod);
+    final endKey = isoDate(prev.end);
+    if (_data.lastSweptPeriodEnd == endKey) return 0;
+    final alreadyRecorded = _data.entries.any(
+      (entry) =>
+          entry.kind == EntryKind.leftoverTransfer &&
+          isoDate(entry.date) == endKey,
+    );
+    if (alreadyRecorded) return 0;
+
+    final leftover = _data.entries
+        .where((entry) => !dayStart(entry.date).isAfter(prev.end))
+        .fold<int>(0, (sum, entry) => sum + (entry.changes[Jar.jajan] ?? 0));
+    if (leftover <= 0) return 0;
+
+    int moved = leftover;
+    final repo = remote;
+    final childId = _data.anakId;
+    if (repo != null && repo.isSignedIn && childId != null) {
+      final rpcMoved = await repo.runSisaJajan(
+        anakId: childId,
+        periodStart: prev.start,
+        periodEnd: prev.end,
+      );
+      if (rpcMoved <= 0) {
+        await _change((next) {
+          next.lastSweptPeriodEnd = endKey;
+          return null;
+        });
+        return 0;
+      }
+      moved = rpcMoved;
+    }
+
+    final primaryDream = activeDream;
+    final error = await _change((next) {
+      next.lastSweptPeriodEnd = endKey;
+      next.entries.add(
+        MoneyEntry(
+          kind: EntryKind.leftoverTransfer,
+          date: prev.end,
+          amount: moved,
+          note: 'Sisa jajan ${dateLabel(prev.start)} - ${dateLabel(prev.end)}',
+          changes: {Jar.jajan: -moved, Jar.tabung: moved},
+          dreamId: primaryDream?.id,
+        ),
+      );
+      return null;
+    });
+    return error == null ? moved : 0;
+  }
 
   Future<String?> settings({
     bool? reminders,
@@ -389,12 +690,35 @@ class KoiniStore extends ChangeNotifier {
     return null;
   });
 
-  Future<String?> activatePlan(Plan plan, String pin) => _change((next) {
-    final error = checkPin(pin);
+  Future<String?> activatePlan(Plan plan, String pin) async {
+    final error = await _change((next) {
+      final pinError = checkPin(pin);
+      if (pinError != null) return pinError;
+      next.plan = plan;
+      return null;
+    });
     if (error != null) return error;
-    next.plan = plan;
+    final repo = remote;
+    if (repo != null && repo.isSignedIn) {
+      try {
+        await repo.activatePlan(plan: plan);
+      } catch (e) {
+        debugPrint('Koini plan remote sync: ${e.runtimeType}');
+      }
+    }
     return null;
-  });
+  }
+
+  Future<void> _syncEntryToRemote(MoneyEntry entry) async {
+    final repo = remote;
+    final id = _data.anakId;
+    if (repo == null || !repo.isSignedIn || id == null) return;
+    try {
+      await repo.insertEntry(anakId: id, entry: entry);
+    } catch (e) {
+      debugPrint('Koini entry remote sync: ${e.runtimeType}');
+    }
+  }
 
   bool _validAmount(int amount) => amount > 0 && amount <= rupiahLimit;
 

@@ -1,5 +1,4 @@
 import 'package:koini/core/viewmodels/view_model.dart';
-import 'package:koini/features/missions/mission_content.dart';
 import 'package:koini/services/koini_store.dart';
 
 class ChildShellViewModel extends StoreViewModel {
@@ -12,6 +11,6 @@ class ChildShellViewModel extends StoreViewModel {
   int get stars => _store.stars;
   int get dreamCount => _store.dreams.length;
   int get completedMissions => _store.scores.length;
-  int get missionCount => missions.length;
+  int get missionCount => _store.catalogMissions.length;
   bool get hasPlus => _store.hasPlus;
 }

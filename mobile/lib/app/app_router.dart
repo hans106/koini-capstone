@@ -12,7 +12,6 @@ import 'package:koini/features/dreams/views/create_dream_view.dart';
 import 'package:koini/features/dreams/views/dream_detail_view.dart';
 import 'package:koini/features/home/views/weekly_summary_view.dart';
 import 'package:koini/features/jars/views/jar_detail_view.dart';
-import 'package:koini/features/missions/mission_content.dart';
 import 'package:koini/features/missions/views/koini_story_view.dart';
 import 'package:koini/features/missions/views/mission_quiz_view.dart';
 import 'package:koini/features/onboarding/views/onboarding_flow_view.dart';
@@ -250,7 +249,9 @@ Widget _screen(
   final jar = Jar.values
       .where((item) => item.name == params['jar'])
       .firstOrNull;
-  final mission = missions.where((item) => item.id == params['id']).firstOrNull;
+  final mission = store.catalogMissions
+      .where((item) => item.id == params['id'])
+      .firstOrNull;
   final transaction = extra is TransactionArgs ? extra : null;
   return switch (route) {
     KRoute.login => const LoginView(),

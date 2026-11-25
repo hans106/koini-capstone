@@ -1,5 +1,4 @@
 import 'package:koini/core/viewmodels/view_model.dart';
-import 'package:koini/features/missions/mission_content.dart';
 import 'package:koini/features/rewards/viewmodels/badge_progress.dart';
 import 'package:koini/models/badge.dart';
 import 'package:koini/models/koini_data.dart';
@@ -27,7 +26,8 @@ class ParentOverviewViewModel extends StoreViewModel {
   int get spent => _store.amountFor(EntryKind.spend, entries);
   int get emailAmount => alert ? _store.balance(Jar.tabung) : savings;
   bool get alerts => _store.alerts;
-  String get missionFraction => '${_store.scores.length}/${missions.length}';
+  String get missionFraction =>
+      '${_store.scores.length}/${_store.catalogMissions.length}';
   int get weeklyChange {
     final previous = periodStart.subtract(const Duration(days: 7));
     return savings -
@@ -63,7 +63,7 @@ class ParentOverviewViewModel extends StoreViewModel {
 
   Iterable<({String name, String result})> get completedMissions sync* {
     final scores = _store.scores;
-    for (final mission in missions) {
+    for (final mission in _store.catalogMissions) {
       final score = scores[mission.id];
       if (score != null) {
         yield (

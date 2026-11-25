@@ -89,16 +89,18 @@ class MissionStop extends StatelessWidget {
 }
 
 class MissionTrail extends CustomPainter {
-  const MissionTrail({required this.progress});
+  const MissionTrail({required this.progress, this.count = 4});
   final int progress;
+  final int count;
 
   @override
   void paint(Canvas canvas, Size size) {
-    for (var i = 1; i < 4; i++) {
+    if (count < 2) return;
+    for (var i = 1; i < count; i++) {
       final start = i.isOdd ? 26.0 : size.width - 26;
       final end = i.isOdd ? size.width - 26 : 26.0;
-      final top = size.height * (i - .5) / 4;
-      final bottom = size.height * (i + .5) / 4;
+      final top = size.height * (i - .5) / count;
+      final bottom = size.height * (i + .5) / count;
       final segment = Path()
         ..moveTo(start, top)
         ..cubicTo(
@@ -121,5 +123,5 @@ class MissionTrail extends CustomPainter {
 
   @override
   bool shouldRepaint(MissionTrail oldDelegate) =>
-      progress != oldDelegate.progress;
+      progress != oldDelegate.progress || count != oldDelegate.count;
 }

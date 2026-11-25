@@ -156,7 +156,8 @@ class _MissionQuizViewState extends ConsumerState<MissionQuizView> {
                 : 'Belum tepat.',
             correctAnswer
                 ? question.explanation
-                : 'Baca ceritanya sekali lagi dan coba pilihan lain.',
+                : (question.wrongExplanation ??
+                      'Baca ceritanya sekali lagi dan coba pilihan lain.'),
             color: correctAnswer ? KColors.mint : KColors.error,
           ),
       ],
