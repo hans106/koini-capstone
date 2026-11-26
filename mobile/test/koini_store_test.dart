@@ -332,4 +332,19 @@ void main() {
       expect(store.balance(Jar.tabung), 45000);
     },
   );
+
+  test('PIN is stored as a salted hash and still verifies', () async {
+    expect(storage.saved, contains('"pin":"v1:'));
+    expect(store.checkPin('123456'), isNull);
+    expect(store.checkPin('000000'), isNotNull);
+    expect(await store.updatePin('123456', '654321'), isNull);
+    expect(storage.saved, contains('"pin":"v1:'));
+    expect(store.checkPin('654321'), isNull);
+  });
+
+  test('plan can be activated without asking for the PIN again', () async {
+    expect(await store.activatePlan(Plan.monthly), isNull);
+    expect(store.hasPlus, isTrue);
+    expect(store.hasYearly, isFalse);
+  });
 }

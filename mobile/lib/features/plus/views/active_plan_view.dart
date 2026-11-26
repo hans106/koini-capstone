@@ -68,17 +68,16 @@ class _ActivePlanViewState extends ConsumerState<ActivePlanView> {
         icon: const Icon(Icons.star, color: KColors.gold),
         onTap: () => openPage(context, KRoute.structuredHistory, extra: true),
       ),
-      if (model.hasYearly)
-        for (final entry in widget.yearlyFeatures.entries) ...[
-          const Gap(8),
-          KRow(
-            entry.key,
-            '',
-            color: KColors.gold,
-            icon: const Icon(Icons.star, color: KColors.gold),
-            onTap: entry.value,
-          ),
-        ],
+      for (final entry in widget.yearlyFeatures.entries) ...[
+        const Gap(8),
+        KRow(
+          entry.key,
+          '',
+          color: KColors.gold,
+          icon: const Icon(Icons.star, color: KColors.gold),
+          onTap: entry.value,
+        ),
+      ],
     ],
   );
 }

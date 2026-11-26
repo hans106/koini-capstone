@@ -135,8 +135,7 @@ void main() {
     await tap(tester, 'Koini Plus');
     await tap(tester, 'Tahunan');
     await tap(tester, 'Mulai paket Tahunan');
-    await tap(tester, 'Lanjut dengan PIN');
-    await pin(tester, '123456', button: 'Aktifkan paket demo');
+    await tap(tester, 'Aktifkan paket demo');
     expect(find.text('Koini Plus aktif!'), findsOneWidget);
     expect(store.plan, Plan.yearly);
     await tap(tester, 'Kembali ke Ringkasan');

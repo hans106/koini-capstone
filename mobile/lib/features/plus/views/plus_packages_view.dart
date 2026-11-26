@@ -19,7 +19,7 @@ const _features = [
   ('Tantangan Hadiah', Plan.monthly),
   ('Bonus Tabungan', Plan.monthly),
   ('Catatan terstruktur', Plan.monthly),
-  ('Rapor bulanan', Plan.yearly),
+  ('Rapor bulanan', Plan.monthly),
 ];
 
 final _viewModelProvider = ChangeNotifierProvider.autoDispose
@@ -59,7 +59,7 @@ class _PlusPackagesViewState extends ConsumerState<PlusPackagesView> {
           ),
           FilledButton(
             onPressed: () => Navigator.pop(dialog, true),
-            child: const Text('Lanjut dengan PIN'),
+            child: const Text('Aktifkan paket demo'),
           ),
         ],
       ),
@@ -69,17 +69,15 @@ class _PlusPackagesViewState extends ConsumerState<PlusPackagesView> {
       model.endConfirmation();
       return;
     }
-    final result = await openPage<bool>(
-      context,
-      KRoute.parentPin,
-      extra: (plan: plan, verify: (String pin) => model.verify(plan, pin)),
-    );
+    final saved = await model.activate(plan);
     if (!mounted) return;
     model.endConfirmation();
-    if (result == true && plan != Plan.free) {
+    if (!saved) {
+      note(context, model.error ?? 'Paket belum bisa diaktifkan.');
+    } else if (plan != Plan.free) {
       await openPage<void>(context, KRoute.activePlan);
       if (mounted) Navigator.pop(context);
-    } else if (result == true) {
+    } else {
       note(context, 'Paket Gratis aktif.');
     }
   }
@@ -130,8 +128,8 @@ class _PlusPackagesViewState extends ConsumerState<PlusPackagesView> {
                     heading(plan.label, size: 18),
                     caption(switch (plan) {
                       Plan.free => 'Fitur dasar selamanya',
-                      Plan.monthly => 'Catatan dan rencana',
-                      Plan.yearly => 'Pendampingan lengkap',
+                      Plan.monthly => 'Tantangan, bonus, dan rapor',
+                      Plan.yearly => 'Semua fitur · hemat Rp10.000',
                     }),
                   ],
                 ),

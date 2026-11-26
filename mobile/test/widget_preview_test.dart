@@ -273,8 +273,7 @@ void main() {
       await mount(tester, plusPackagesPreview);
       await press(tester, 'Bulanan');
       await press(tester, 'Mulai paket Bulanan');
-      await press(tester, 'Lanjut dengan PIN');
-      await enterPin(tester, previewPin, 'Aktifkan paket demo');
+      await press(tester, 'Aktifkan paket demo');
       expect(find.text('Koini Plus aktif!'), findsOneWidget);
       await press(tester, 'Catatan terstruktur');
       expect(find.text('Catatan terstruktur'), findsOneWidget);

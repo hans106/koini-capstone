@@ -29,6 +29,9 @@ class PlusPackagesViewModel extends StoreViewModel {
     changed();
   }
 
+  /// Area orang tua sudah dibuka dengan PIN, jadi paket langsung diaktifkan.
+  Future<bool> activate(Plan plan) => submit(() => _store.activatePlan(plan));
+
   Future<String?> verify(Plan plan, String pin) async {
     if (busy) return 'Koini sedang menyimpan. Coba lagi sebentar.';
     await submit(() => _store.activatePlan(plan, pin));

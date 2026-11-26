@@ -7,8 +7,8 @@ import 'package:koini/core/widgets/koini_ui.dart';
 import 'package:koini/features/parents/viewmodels/parent_overview_viewmodel.dart';
 import 'package:koini/features/parents/views/parent_dashboard_view.dart';
 import 'package:koini/features/parents/widgets/dream_report.dart';
+import 'package:koini/features/parents/widgets/period_widgets.dart';
 import 'package:koini/features/rewards/widgets/badge_icon.dart';
-import 'package:koini/features/transactions/widgets/transaction_summary.dart';
 import 'package:koini/models/koini_data.dart';
 import 'package:koini/previews/preview_data.dart';
 import 'package:koini/previews/preview_host.dart';
@@ -45,7 +45,6 @@ class _ParentReportViewState extends ConsumerState<ParentReportView> {
 
   Widget buildPage(BuildContext context) {
     final monthly = widget.monthly;
-    final period = model.entries;
     final periodLabel = monthly ? 'Bulan ini' : 'Minggu ini';
     final dream = model.dream;
     final completed = model.completedMissions.toList();
@@ -115,6 +114,11 @@ class _ParentReportViewState extends ConsumerState<ParentReportView> {
           ),
         ),
         const Gap(9),
+        PeriodChart(
+          title: monthly ? 'Pemakaian per minggu' : 'Pemakaian per hari',
+          buckets: model.buckets,
+        ),
+        const Gap(9),
         if (dream != null) ...[
           DreamReport(
             dream: dream,
@@ -138,6 +142,28 @@ class _ParentReportViewState extends ConsumerState<ParentReportView> {
             ),
           ],
         ),
+        if (monthly) ...[
+          const Gap(9),
+          Row(
+            children: [
+              Expanded(
+                child: Stat(
+                  'Tantangan berhasil',
+                  '${model.challengeCount} · ${rupiah(model.challengeRewards)}',
+                  color: KColors.gold,
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Stat(
+                  'Bonus tabungan',
+                  rupiah(model.bonusRewards),
+                  color: KColors.mint,
+                ),
+              ),
+            ],
+          ),
+        ],
         const Gap(9),
         heading(monthly ? 'Pencapaian' : 'Hasil misi', size: 19),
         const Gap(6),
@@ -162,8 +188,7 @@ class _ParentReportViewState extends ConsumerState<ParentReportView> {
         const Gap(9),
         heading('Aktivitas terbaru', size: 19),
         const Gap(6),
-        if (period.isEmpty) const KRow('Belum ada aktivitas', ''),
-        for (final entry in period.take(6)) ...[EntryRow(entry), const Gap(6)],
+        DayHistory(groups: model.history),
         const Gap(),
         const KCallout(
           'Saran untuk Ayah/Bunda',

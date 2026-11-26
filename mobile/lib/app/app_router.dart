@@ -164,7 +164,7 @@ final routerProvider = Provider<GoRouter>((ref) {
           !store.hasPlus) {
         return _childHome;
       }
-      if (path == KRoute.monthlyReport.path && !store.hasYearly) {
+      if (path == KRoute.monthlyReport.path && !store.hasPlus) {
         return _childHome;
       }
       return null;
@@ -473,11 +473,16 @@ void plusGate(
   BuildContext context, {
   required bool yearly,
   VoidCallback? parentAccess,
+  String? feature,
 }) {
   kSheet(
     context,
     yearly ? 'Fitur paket Tahunan' : 'Ini fitur Koini Plus',
-    yearly ? 'Rapor bulanan tersedia di paket Tahunan.' : 'Catatan terstruktur ada di Koini Plus. Fitur dasar Koini tetap gratis.',
+    feature != null
+        ? '$feature ada di Koini Plus. Fitur dasar Koini tetap gratis.'
+        : yearly
+        ? 'Target bertanggal tersedia di paket Tahunan.'
+        : 'Catatan terstruktur ada di Koini Plus. Fitur dasar Koini tetap gratis.',
     primary: parentAccess == null ? 'Oke' : 'Ajak Ayah/Bunda',
     secondary: parentAccess == null ? null : 'Nanti saja',
     action: parentAccess,
@@ -502,6 +507,25 @@ void openYearly(BuildContext context, KoiniStore store, VoidCallback action) {
     action();
   } else {
     plusGate(context, yearly: true, parentAccess: () => showPlus(context));
+  }
+}
+
+/// Menjalankan [action] bila paket Koini Plus aktif, selain itu menawarkan paket.
+void openPlus(
+  BuildContext context,
+  KoiniStore store,
+  VoidCallback action, {
+  String? feature,
+}) {
+  if (store.hasPlus) {
+    action();
+  } else {
+    plusGate(
+      context,
+      yearly: false,
+      feature: feature,
+      parentAccess: () => showPlus(context),
+    );
   }
 }
 

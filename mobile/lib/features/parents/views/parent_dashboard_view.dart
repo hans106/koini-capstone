@@ -8,6 +8,7 @@ import 'package:koini/core/theme/koini_theme.dart';
 import 'package:koini/core/widgets/koini_ui.dart';
 import 'package:koini/features/parents/viewmodels/parent_overview_viewmodel.dart';
 import 'package:koini/features/parents/widgets/dream_report.dart';
+import 'package:koini/features/parents/widgets/period_widgets.dart';
 import 'package:koini/models/koini_data.dart';
 import 'package:koini/previews/preview_data.dart';
 import 'package:koini/previews/preview_host.dart';
@@ -168,11 +169,12 @@ class _ParentDashboardViewState extends ConsumerState<ParentDashboardView> {
         const Gap(7),
         KRow(
           'Rapor bulanan',
-          'Ringkasan belajar sebulan · Tahunan',
-          onTap: () => openYearly(
+          'Ringkasan belajar sebulan · Plus',
+          onTap: () => openPlus(
             context,
             store,
             () => openPage(context, KRoute.monthlyReport),
+            feature: 'Rapor Bulanan',
           ),
         ),
         const Gap(7),
@@ -181,6 +183,8 @@ class _ParentDashboardViewState extends ConsumerState<ParentDashboardView> {
           'Uang saku dan PIN',
           onTap: () => openPage(context, KRoute.parentSettings),
         ),
+        const Gap(9),
+        PeriodChart(title: 'Pemakaian minggu ini', buckets: model.buckets),
       ],
     );
   }

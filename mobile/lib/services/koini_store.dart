@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'dart:math';
 
+import 'package:crypto/crypto.dart';
 import 'package:flutter/foundation.dart';
 import 'package:koini/features/missions/mission_content.dart' as fallback;
 import 'package:koini/models/mission.dart';
@@ -190,11 +191,27 @@ class KoiniStore extends ChangeNotifier {
     }
   }
 
+  static String _hashPin(String pin, String salt) =>
+      sha256.convert(utf8.encode('$salt:$pin')).toString();
+
+  static String _newPinRecord(String pin) {
+    final random = Random.secure();
+    final salt = base64UrlEncode(List.generate(12, (_) => random.nextInt(256)));
+    return 'v1:$salt:${_hashPin(pin, salt)}';
+  }
+
+  /// Format 'v1:salt:hash'. PIN lama (teks biasa) tetap valid sampai diganti.
+  static bool _pinMatches(String record, String pin) {
+    if (!record.startsWith('v1:')) return record == pin;
+    final parts = record.split(':');
+    return parts.length == 3 && _hashPin(pin, parts[1]) == parts[2];
+  }
+
   String? checkPin(String pin) {
     if (_pinLockedUntil?.isAfter(now) ?? false) {
       return 'Terlalu banyak percobaan. Tunggu satu menit.';
     }
-    if (_data.pin.isNotEmpty && pin == _data.pin) {
+    if (_data.pin.isNotEmpty && _pinMatches(_data.pin, pin)) {
       _pinFailures = 0;
       _pinLockedUntil = null;
       return null;
@@ -230,7 +247,7 @@ class KoiniStore extends ChangeNotifier {
         ..name = name.trim()
         ..age = age
         ..email = email.trim()
-        ..pin = pin
+        ..pin = _newPinRecord(pin)
         ..allowance = allowance
         ..allowancePeriod = period
         ..dailyLimit = limit
@@ -936,14 +953,18 @@ class KoiniStore extends ChangeNotifier {
     if (!RegExp(r'^\d{6}$').hasMatch(pin)) {
       return 'PIN harus terdiri dari 6 angka.';
     }
-    next.pin = pin;
+    next.pin = _newPinRecord(pin);
     return null;
   });
 
-  Future<String?> activatePlan(Plan plan, String pin) async {
+  /// PIN hanya dicek bila diberikan. Layar paket hanya terbuka setelah PIN
+  /// area orang tua diverifikasi, jadi tidak perlu meminta PIN lagi.
+  Future<String?> activatePlan(Plan plan, [String? pin]) async {
     final error = await _change((next) {
-      final pinError = checkPin(pin);
-      if (pinError != null) return pinError;
+      if (pin != null) {
+        final pinError = checkPin(pin);
+        if (pinError != null) return pinError;
+      }
       next.plan = plan;
       return null;
     });
