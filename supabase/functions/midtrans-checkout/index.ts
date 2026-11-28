@@ -59,11 +59,14 @@ Deno.serve(async (req) => {
       503,
     );
   }
-  if (!midtransServerKey.startsWith('SB-Mid-server-')) {
+  if (
+    !midtransServerKey.startsWith('SB-Mid-server-') &&
+    !midtransServerKey.startsWith('Mid-server-')
+  ) {
     return jsonResponse(
       {
         error:
-          'Kunci Midtrans harus menggunakan Sandbox Server Key (SB-Mid-server-...).',
+          'Format MIDTRANS_SERVER_KEY belum sesuai (harus Server Key dari Midtrans Sandbox).',
       },
       400,
     );
