@@ -1,6 +1,8 @@
 import 'dart:math';
+import 'dart:typed_data';
 
 import 'package:koini/core/viewmodels/view_model.dart';
+import 'package:koini/features/parents/services/report_pdf.dart';
 import 'package:koini/features/parents/widgets/period_widgets.dart';
 import 'package:koini/features/rewards/viewmodels/badge_progress.dart';
 import 'package:koini/models/badge.dart';
@@ -143,6 +145,33 @@ class ParentOverviewViewModel extends StoreViewModel {
       badges(_store).where((badge) => badge.earned);
   int savedFor(Dream dream) => _store.savedFor(dream);
   double progress(Dream dream) => _store.progress(dream);
+
+  ReportPdfData get pdfData => ReportPdfData(
+    child: child,
+    periodStart: periodStart,
+    generatedAt: today,
+    jars: jarReport,
+    savings: savings,
+    missions: missionFraction,
+    challengeCount: challengeCount,
+    challengeRewards: challengeRewards,
+    bonusRewards: bonusRewards,
+    badges: [for (final badge in earnedBadges) badge.name],
+    history: [...entries]..sort((a, b) => a.date.compareTo(b.date)),
+  );
+
+  /// Membuat PDF lalu menyerahkannya ke [share] (lembar bagikan/simpan).
+  Future<bool> exportPdf(
+    Future<void> Function(Uint8List bytes, String fileName) share,
+  ) => submit(() async {
+    try {
+      final data = pdfData;
+      await share(await buildReportPdf(data), data.fileName);
+      return null;
+    } catch (_) {
+      return 'PDF belum bisa dibuat. Coba lagi.';
+    }
+  });
 
   Future<bool> setAlerts(bool value) =>
       submit(() => _store.settings(alerts: value));
