@@ -132,6 +132,14 @@ class KoiniStore extends ChangeNotifier {
     await syncFromRemote();
   }
 
+  Future<void> clearLocalSession() async {
+    _data = KoiniData();
+    _pinFailures = 0;
+    _pinLockedUntil = null;
+    await storage.write(jsonEncode(_data.toJson()));
+    notifyListeners();
+  }
+
   Future<void> syncFromRemote() async {
     final repo = remote;
     if (repo == null || !repo.isSignedIn) return;
@@ -140,6 +148,16 @@ class KoiniStore extends ChangeNotifier {
       if (snapshot == null) return;
       if (snapshot.missions.isNotEmpty) {
         _remoteMissions = List.unmodifiable(snapshot.missions);
+      }
+      if (snapshot.anakId == null || snapshot.childName == null) {
+        if (_data.hasProfile) {
+          _data = KoiniData();
+          _pinFailures = 0;
+          _pinLockedUntil = null;
+          await storage.write(jsonEncode(_data.toJson()));
+        }
+        notifyListeners();
+        return;
       }
       if (snapshot.anakId != null && snapshot.childName != null) {
         final next = KoiniData.fromJson(_data.toJson());

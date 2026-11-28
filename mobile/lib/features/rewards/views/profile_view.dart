@@ -127,7 +127,9 @@ class _ProfileViewState extends ConsumerState<ProfileView> {
         if (widget.onSignOut case final signOut?)
           TextButton(
             onPressed: signOut,
-            child: const Text('Keluar dari mode demo'),
+            child: Text(
+              store.isRemoteConnected ? 'Keluar akun' : 'Keluar dari mode demo',
+            ),
           ),
       ],
     );

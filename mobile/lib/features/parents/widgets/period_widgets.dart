@@ -75,7 +75,10 @@ class PeriodChart extends StatelessWidget {
                           ],
                         ),
                         const SizedBox(height: 4),
-                        caption(bucket.label, align: TextAlign.center),
+                        FittedBox(
+                          fit: BoxFit.scaleDown,
+                          child: caption(bucket.label, align: TextAlign.center),
+                        ),
                       ],
                     ),
                   ),

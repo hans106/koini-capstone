@@ -185,14 +185,16 @@ class _AddTransactionViewState extends ConsumerState<AddTransactionView> {
         ),
         const Gap(8),
         KField('Catatan (opsional)', memo, hint: kind.label),
-        const Gap(10),
+        const Gap(14),
         Keypad(onDigit: form.enterDigit),
         const Gap(12),
         if (kind == EntryKind.spend) ...[
           KCard(
             border: KColors.peach,
             child: caption(
-              'Jajan terpakai ${rupiah(spending)} minggu ini.\nSisa toples Jajan ${rupiah(form.balance(Jar.jajan))}.',
+              'Jajan terpakai ${rupiah(spending)} ${widget.store.allowancePeriod.currentLabel}.\n'
+              'Sisa toples Jajan ${rupiah(form.balance(Jar.jajan))}.'
+              '${!widget.store.receivedThisPeriod && form.balance(Jar.jajan) == 0 ? '\nKetuk "Terima uang saku" di Beranda dulu supaya toples terisi.' : ''}',
               color: KColors.peach,
             ),
           ),

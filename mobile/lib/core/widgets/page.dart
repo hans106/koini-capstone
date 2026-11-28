@@ -89,7 +89,7 @@ class KPage extends StatelessWidget {
                 ),
                 if (footer != null)
                   Padding(
-                    padding: const EdgeInsets.fromLTRB(24, 0, 24, 22),
+                    padding: const EdgeInsets.fromLTRB(24, 10, 24, 16),
                     child: SizedBox(width: double.infinity, child: footer),
                   ),
               ],

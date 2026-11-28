@@ -71,6 +71,9 @@ class AuthViewModel extends Notifier<AuthState> {
     state = AuthState(session: session, busy: true);
     try {
       await ref.read(authServiceProvider).signOut();
+      if (isLiveBackend) {
+        await ref.read(koiniStoreProvider).clearLocalSession();
+      }
       if (ref.mounted) state = const AuthState();
     } catch (_) {
       if (ref.mounted) {

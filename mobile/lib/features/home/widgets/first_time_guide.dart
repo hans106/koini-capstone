@@ -51,6 +51,7 @@ class _FirstTimeGuideCardState extends State<FirstTimeGuideCard> {
     return KCard(
       border: KColors.gold,
       child: Column(
+        mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(

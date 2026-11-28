@@ -347,4 +347,12 @@ void main() {
     expect(store.hasPlus, isTrue);
     expect(store.hasYearly, isFalse);
   });
+
+  test('clearLocalSession resets profile and local storage cleanly', () async {
+    expect(store.hasProfile, isTrue);
+    await store.clearLocalSession();
+    expect(store.hasProfile, isFalse);
+    expect(store.entries, isEmpty);
+    expect(store.anakId, isNull);
+  });
 }
