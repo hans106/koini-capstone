@@ -13,6 +13,7 @@ import 'package:koini/models/koini_data.dart';
 import 'package:koini/previews/preview_data.dart';
 import 'package:koini/previews/preview_host.dart';
 import 'package:koini/services/koini_store.dart';
+import 'package:printing/printing.dart';
 
 final _viewModelProvider = ChangeNotifierProvider.autoDispose
     .family<ParentOverviewViewModel, ParentReportView>(
@@ -42,6 +43,10 @@ class _ParentReportViewState extends ConsumerState<ParentReportView> {
     ref.watch(_provider);
     return buildPage(context);
   }
+
+  Future<void> _exportPdf() => model.exportPdf(
+    (bytes, name) => Printing.sharePdf(bytes: bytes, filename: name),
+  );
 
   Widget buildPage(BuildContext context) {
     final monthly = widget.monthly;
@@ -190,6 +195,15 @@ class _ParentReportViewState extends ConsumerState<ParentReportView> {
         const Gap(6),
         DayHistory(groups: model.history),
         const Gap(),
+        if (monthly) ...[
+          KButton(
+            model.busy ? 'Membuat PDF...' : 'Simpan / bagikan PDF',
+            secondary: true,
+            onTap: model.busy ? null : _exportPdf,
+          ),
+          if (model.error != null) caption(model.error!),
+          const Gap(),
+        ],
         const KCallout(
           'Saran untuk Ayah/Bunda',
           'Ajak anak bercerita tentang satu pilihan uangnya minggu ini.',
