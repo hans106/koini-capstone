@@ -1,4 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
+import 'package:koini/features/rewards/viewmodels/badge_progress.dart';
 import 'package:koini/models/koini_data.dart';
 import 'package:koini/services/koini_storage.dart';
 import 'package:koini/services/koini_store.dart';
@@ -355,4 +356,23 @@ void main() {
     expect(store.entries, isEmpty);
     expect(store.anakId, isNull);
   });
+
+  test(
+    '9 badges track berbagi, cek celengan, and 5/10 missions accurately',
+    () async {
+      expect(badges(store).length, 9);
+      await store.receiveAllowance();
+      expect(
+        await store.record(kind: EntryKind.give, amount: 5000, note: 'Infaq'),
+        isNull,
+      );
+      expect(await store.recordPiggyBankCheck(95000), isNull);
+      final earnedNames = [
+        for (final b in badges(store))
+          if (b.earned) b.name,
+      ];
+      expect(earnedNames, contains('Dermawan cilik'));
+      expect(earnedNames, contains('Penjaga celengan'));
+    },
+  );
 }

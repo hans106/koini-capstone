@@ -9,10 +9,12 @@ class JarSplitEditor extends StatefulWidget {
     required this.amount,
     required this.initial,
     required this.onChanged,
+    this.period = AllowancePeriod.weekly,
   });
   final int amount;
   final Map<Jar, int> initial;
   final ValueChanged<Map<Jar, int>> onChanged;
+  final AllowancePeriod period;
 
   @override
   State<JarSplitEditor> createState() => _JarSplitEditorState();
@@ -45,7 +47,7 @@ class _JarSplitEditorState extends State<JarSplitEditor> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            caption('Uang saku mingguan'),
+            caption('Uang saku ${widget.period.label.toLowerCase()}'),
             heading(rupiah(widget.amount), size: 30, color: KColors.gold),
             caption(
               'Bagi uang saku. Tiap ketukan hingga ${rupiah(increment)}.',

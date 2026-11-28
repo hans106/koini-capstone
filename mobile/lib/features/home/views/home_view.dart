@@ -198,6 +198,13 @@ class _HomeViewState extends ConsumerState<HomeView> {
                         alignment: Alignment.centerLeft,
                         child: heading(rupiah(model.balance(jar)), size: 21),
                       ),
+                      if (!model.receivedThisWeek &&
+                          (store.split[jar] ?? 0) > 0)
+                        FittedBox(
+                          fit: BoxFit.scaleDown,
+                          alignment: Alignment.centerLeft,
+                          child: caption('Jatah ${rupiah(store.split[jar]!)}'),
+                        ),
                       const Gap(3),
                     ],
                   ),
@@ -215,8 +222,10 @@ class _HomeViewState extends ConsumerState<HomeView> {
           const Gap(8),
           KRow(
             'Terima uang saku',
-            'Catat setelah uang ${model.allowancePeriod.currentLabel} diterima.',
+            'Rencana ${rupiah(model.allowance)} siap dicatat. Ketuk setelah uang ${model.allowancePeriod.currentLabel} diterima.',
             color: KColors.gold,
+            bright: true,
+            icon: const Icon(Icons.payments_outlined, color: KColors.gold),
             onTap: () async {
               final confirmed = await showDialog<bool>(
                 context: context,

@@ -15,6 +15,7 @@ class InitialJarSplitView {
     JarSplitEditor(
       amount: form.amount,
       initial: form.split,
+      period: form.period,
       onChanged: form.setSplit,
     ),
   ];

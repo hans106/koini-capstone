@@ -150,12 +150,11 @@ class _AccountEntryState extends ConsumerState<AccountEntry> {
             hint: 'ayah.bunda@email.com',
           ),
           const Gap(8),
-          TextField(
-            controller: _passwordController,
-            obscureText: true,
-            decoration: const InputDecoration(
-              labelText: 'Kata sandi (minimal 6 karakter)',
-            ),
+          KField(
+            'Kata sandi (minimal 6 karakter)',
+            _passwordController,
+            secret: true,
+            hint: 'Minimal 6 karakter',
           ),
         ],
         const Gap(),

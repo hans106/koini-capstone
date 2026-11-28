@@ -38,8 +38,12 @@ class ReadyToPlayView {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          caption('Uang saku mingguan'),
+          caption('Uang saku ${form.period.label.toLowerCase()}'),
           heading(rupiah(form.amount)),
+          const Gap(4),
+          caption(
+            'Rencana ini langsung tersimpan. Di Beranda, ketuk "Terima uang saku" saat uang tunai sudah diberikan ke ${form.name}.',
+          ),
           const Gap(8),
           caption('Batas jajan harian'),
           heading(rupiah(form.dailyLimit), size: 18, color: KColors.peach),

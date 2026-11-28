@@ -4,6 +4,7 @@ import 'dart:math';
 import 'package:crypto/crypto.dart';
 import 'package:flutter/foundation.dart';
 import 'package:koini/features/missions/mission_content.dart' as fallback;
+import 'package:koini/features/rewards/viewmodels/badge_progress.dart';
 import 'package:koini/models/mission.dart';
 
 import '../models/koini_data.dart';
@@ -205,7 +206,7 @@ class KoiniStore extends ChangeNotifier {
       }
       notifyListeners();
     } catch (error) {
-      debugPrint('Koini remote sync: ${error.runtimeType}');
+      debugPrint('Koini remote sync: $error');
     }
   }
 
@@ -298,7 +299,7 @@ class KoiniStore extends ChangeNotifier {
           });
         }
       } catch (e) {
-        debugPrint('Koini onboarding remote sync: ${e.runtimeType}');
+        debugPrint('Koini onboarding remote sync: $e');
       }
     }
     return null;
@@ -344,7 +345,7 @@ class KoiniStore extends ChangeNotifier {
           effectiveDate: now,
         );
       } catch (e) {
-        debugPrint('Koini allowance remote sync: ${e.runtimeType}');
+        debugPrint('Koini allowance remote sync: $e');
       }
     }
     return null;
@@ -460,6 +461,10 @@ class KoiniStore extends ChangeNotifier {
     if (created case final entry?) {
       await _syncEntryToRemote(entry);
     }
+    if (kind == EntryKind.save && dream != null && remaining(dream) == 0) {
+      await _markDreamAchievedRemote(dream);
+    }
+    await _syncBadgesToRemote();
     return null;
   }
 
@@ -564,7 +569,7 @@ class KoiniStore extends ChangeNotifier {
           });
         }
       } catch (e) {
-        debugPrint('Koini dream remote sync: ${e.runtimeType}');
+        debugPrint('Koini dream remote sync: $e');
       }
     }
     return null;
@@ -607,9 +612,10 @@ class KoiniStore extends ChangeNotifier {
           streakHari: streak,
         );
       } catch (e) {
-        debugPrint('Koini mission remote sync: ${e.runtimeType}');
+        debugPrint('Koini mission remote sync: $e');
       }
     }
+    await _syncBadgesToRemote();
     return null;
   }
 
@@ -634,9 +640,10 @@ class KoiniStore extends ChangeNotifier {
       try {
         await repo.savePiggyBankCheck(anakId: childId, check: check);
       } catch (e) {
-        debugPrint('Koini piggy check remote sync: ${e.runtimeType}');
+        debugPrint('Koini piggy check remote sync: $e');
       }
     }
+    await _syncBadgesToRemote();
     return null;
   }
 
@@ -653,7 +660,7 @@ class KoiniStore extends ChangeNotifier {
       try {
         await repo.markTutorialDone(anakId: childId);
       } catch (e) {
-        debugPrint('Koini tutorial remote sync: ${e.runtimeType}');
+        debugPrint('Koini tutorial remote sync: $e');
       }
     }
     return null;
@@ -992,7 +999,7 @@ class KoiniStore extends ChangeNotifier {
       try {
         await repo.activatePlan(plan: plan);
       } catch (e) {
-        debugPrint('Koini plan remote sync: ${e.runtimeType}');
+        debugPrint('Koini plan remote sync: $e');
       }
     }
     return null;
@@ -1005,7 +1012,34 @@ class KoiniStore extends ChangeNotifier {
     try {
       await repo.insertEntry(anakId: id, entry: entry);
     } catch (e) {
-      debugPrint('Koini entry remote sync: ${e.runtimeType}');
+      debugPrint('Koini entry remote sync: $e');
+    }
+  }
+
+  Future<void> _markDreamAchievedRemote(Dream dream) async {
+    final repo = remote;
+    final impianId = int.tryParse(dream.id);
+    if (repo == null || !repo.isSignedIn || impianId == null) return;
+    try {
+      await repo.markDreamAchieved(impianId: impianId);
+    } catch (e) {
+      debugPrint('Koini dream achieved sync: $e');
+    }
+  }
+
+  Future<void> _syncBadgesToRemote() async {
+    final repo = remote;
+    final childId = _data.anakId;
+    if (repo == null || !repo.isSignedIn || childId == null) return;
+    final earnedNames = [
+      for (final badge in badges(this))
+        if (badge.earned) badge.name,
+    ];
+    if (earnedNames.isEmpty) return;
+    try {
+      await repo.syncUnlockedBadges(anakId: childId, badgeNames: earnedNames);
+    } catch (e) {
+      debugPrint('Koini badges remote sync: $e');
     }
   }
 

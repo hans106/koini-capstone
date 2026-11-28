@@ -70,7 +70,14 @@ abstract interface class KoiniRemoteRepository {
     required bool isPrimary,
   });
 
+  Future<void> markDreamAchieved({required int impianId});
+
   Future<void> insertEntry({required int anakId, required MoneyEntry entry});
+
+  Future<void> syncUnlockedBadges({
+    required int anakId,
+    required List<String> badgeNames,
+  });
 
   Future<void> savePiggyBankCheck({
     required int anakId,
@@ -494,6 +501,18 @@ final class SupabaseKoiniRepository implements KoiniRemoteRepository {
   }
 
   @override
+  Future<void> markDreamAchieved({required int impianId}) async {
+    if (!isSignedIn) return;
+    await _client
+        .from('impian')
+        .update({
+          'status': 'tercapai',
+          'tercapai_pada': DateTime.now().toUtc().toIso8601String(),
+        })
+        .eq('impian_id', impianId);
+  }
+
+  @override
   Future<void> insertEntry({
     required int anakId,
     required MoneyEntry entry,
@@ -520,8 +539,66 @@ final class SupabaseKoiniRepository implements KoiniRemoteRepository {
         'tanggal': dateText,
       });
     }
+    if (rows.isEmpty &&
+        entry.kind == EntryKind.save &&
+        impianId != null &&
+        entry.amount > 0) {
+      final label = keterangan.isEmpty ? 'Alokasi ke impian' : keterangan;
+      rows.addAll([
+        {
+          'anak_id': anakId,
+          'impian_id': null,
+          'toples': 'tabung',
+          'jenis': 'keluar',
+          'kategori': 'lainnya',
+          'nominal': entry.amount,
+          'keterangan': label,
+          'tanggal': dateText,
+        },
+        {
+          'anak_id': anakId,
+          'impian_id': impianId,
+          'toples': 'tabung',
+          'jenis': 'masuk',
+          'kategori': 'lainnya',
+          'nominal': entry.amount,
+          'keterangan': label,
+          'tanggal': dateText,
+        },
+      ]);
+    }
     if (rows.isEmpty) return;
     await _client.from('catatan').insert(rows);
+  }
+
+  @override
+  Future<void> syncUnlockedBadges({
+    required int anakId,
+    required List<String> badgeNames,
+  }) async {
+    if (!isSignedIn || badgeNames.isEmpty) return;
+    final allBadges = await _client.from('lencana').select('lencana_id, nama');
+    final idByName = <String, int>{
+      for (final row in allBadges)
+        row['nama'] as String: (row['lencana_id'] as num).toInt(),
+    };
+    final targetIds = <int>{for (final name in badgeNames) ?idByName[name]};
+    if (targetIds.isEmpty) return;
+
+    final existingRows = await _client
+        .from('lencana_anak')
+        .select('lencana_id')
+        .eq('anak_id', anakId);
+    final existingIds = <int>{
+      for (final row in existingRows) (row['lencana_id'] as num).toInt(),
+    };
+    final missing = targetIds.difference(existingIds);
+    if (missing.isEmpty) return;
+
+    await _client.from('lencana_anak').insert([
+      for (final lencanaId in missing)
+        {'anak_id': anakId, 'lencana_id': lencanaId},
+    ]);
   }
 
   @override

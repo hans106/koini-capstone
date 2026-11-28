@@ -103,6 +103,7 @@ class _AllowanceSettingsViewState extends ConsumerState<AllowanceSettingsView> {
         key: ValueKey(form.total),
         amount: form.total,
         initial: form.split,
+        period: form.period,
         onChanged: form.changeSplit,
       ),
       const Gap(8),
