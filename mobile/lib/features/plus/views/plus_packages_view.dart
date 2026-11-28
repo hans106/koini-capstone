@@ -11,6 +11,8 @@ import 'package:koini/models/koini_data.dart';
 import 'package:koini/previews/preview_data.dart';
 import 'package:koini/previews/preview_host.dart';
 import 'package:koini/services/koini_store.dart';
+import 'package:koini/services/supabase_koini_repository.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 const _features = [
   ('Catat, impian, dan misi', Plan.free),
@@ -44,34 +46,56 @@ class _PlusPackagesViewState extends ConsumerState<PlusPackagesView> {
   Future<void> confirmPlan() async {
     if (!model.beginConfirmation()) return;
     final plan = model.selected;
-    final confirmed = await showDialog<bool>(
+    final canUseMidtrans = widget.store.isRemoteConnected && plan != Plan.free;
+    final choice = await showDialog<String>(
       context: context,
       useRootNavigator: false,
       builder: (dialog) => AlertDialog(
         title: heading('Konfirmasi paket'),
         content: Text(
-          '${plan.label} · ${plan.price}\n\nAktivasi ini adalah simulasi. Tidak ada pembayaran.',
+          canUseMidtrans
+              ? '${plan.label} · ${plan.price}\n\nBayar menggunakan Midtrans Sandbox (uang uji coba) atau aktifkan simulasi instan.'
+              : '${plan.label} · ${plan.price}\n\nAktivasi ini adalah simulasi. Tidak ada pembayaran.',
         ),
         actions: [
           TextButton(
-            onPressed: () => Navigator.pop(dialog, false),
+            onPressed: () => Navigator.pop(dialog),
             child: const Text('Batal'),
           ),
-          FilledButton(
-            onPressed: () => Navigator.pop(dialog, true),
-            child: const Text('Aktifkan paket demo'),
-          ),
+          if (canUseMidtrans) ...[
+            TextButton(
+              onPressed: () => Navigator.pop(dialog, 'demo'),
+              child: const Text('Simulasi instan'),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.pop(dialog, 'midtrans'),
+              child: const Text('Bayar Midtrans'),
+            ),
+          ] else
+            FilledButton(
+              onPressed: () => Navigator.pop(dialog, 'demo'),
+              child: const Text('Aktifkan paket demo'),
+            ),
         ],
       ),
     );
     if (!mounted) return;
-    if (confirmed != true) {
+    if (choice == null) {
       model.endConfirmation();
       return;
     }
+    if (choice == 'midtrans') {
+      await _payWithMidtrans(plan);
+      if (mounted) model.endConfirmation();
+      return;
+    }
+    await _finishActivation(plan);
+    if (mounted) model.endConfirmation();
+  }
+
+  Future<void> _finishActivation(Plan plan) async {
     final saved = await model.activate(plan);
     if (!mounted) return;
-    model.endConfirmation();
     if (!saved) {
       note(context, model.error ?? 'Paket belum bisa diaktifkan.');
     } else if (plan != Plan.free) {
@@ -79,6 +103,113 @@ class _PlusPackagesViewState extends ConsumerState<PlusPackagesView> {
       if (mounted) Navigator.pop(context);
     } else {
       note(context, 'Paket Gratis aktif.');
+    }
+  }
+
+  Future<void> _payWithMidtrans(Plan plan) async {
+    note(context, 'Menyiapkan transaksi Midtrans Sandbox...');
+    MidtransCheckoutSession session;
+    try {
+      session = await widget.store.createMidtransCheckout(plan);
+    } on FormatException catch (error) {
+      if (mounted) note(context, error.message);
+      return;
+    } catch (_) {
+      if (mounted) {
+        note(context, 'Gagal terhubung ke Midtrans Sandbox. Coba lagi.');
+      }
+      return;
+    }
+    if (!mounted) return;
+
+    Future<void> openCheckout() async {
+      final uri = Uri.parse(session.redirectUrl);
+      final opened = await launchUrl(uri, mode: LaunchMode.externalApplication);
+      if (!opened && mounted) {
+        note(context, 'Browser tidak dapat membuka halaman Midtrans.');
+      }
+    }
+
+    await openCheckout();
+    if (!mounted) return;
+
+    var statusText =
+        'Selesaikan pembayaran di Midtrans Sandbox (bisa pakai simulator QRIS/VA/GoPay), lalu tekan "Cek status".';
+    var checking = false;
+
+    final paid = await showDialog<bool>(
+      context: context,
+      useRootNavigator: false,
+      barrierDismissible: false,
+      builder: (dialog) => StatefulBuilder(
+        builder: (dialogContext, setDialogState) => AlertDialog(
+          title: heading('Pembayaran Midtrans'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                '${plan.label} · ${rupiah(session.amount)}',
+                style: const TextStyle(fontWeight: FontWeight.w800),
+              ),
+              const Gap(4),
+              caption('Order ID: ${session.orderId}'),
+              const Gap(10),
+              Text(statusText),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: checking ? null : () => Navigator.pop(dialog, false),
+              child: const Text('Tutup'),
+            ),
+            TextButton(
+              onPressed: checking ? null : openCheckout,
+              child: const Text('Buka lagi'),
+            ),
+            FilledButton(
+              onPressed: checking
+                  ? null
+                  : () async {
+                      setDialogState(() {
+                        checking = true;
+                        statusText = 'Memeriksa status ke Midtrans Sandbox...';
+                      });
+                      try {
+                        final result = await widget.store.checkMidtransStatus(
+                          session.orderId,
+                        );
+                        if (!dialog.mounted) return;
+                        if (result.paid) {
+                          Navigator.pop(dialog, true);
+                          return;
+                        }
+                        setDialogState(() {
+                          checking = false;
+                          statusText = result.message;
+                        });
+                      } on FormatException catch (error) {
+                        if (!dialog.mounted) return;
+                        setDialogState(() {
+                          checking = false;
+                          statusText = error.message;
+                        });
+                      } catch (_) {
+                        if (!dialog.mounted) return;
+                        setDialogState(() {
+                          checking = false;
+                          statusText = 'Gagal memeriksa status. Pastikan internet aktif.';
+                        });
+                      }
+                    },
+              child: Text(checking ? 'Memeriksa...' : 'Cek status'),
+            ),
+          ],
+        ),
+      ),
+    );
+    if (paid == true && mounted) {
+      await _finishActivation(plan);
     }
   }
 

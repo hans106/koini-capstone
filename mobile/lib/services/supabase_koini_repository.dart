@@ -39,6 +39,32 @@ class RemoteSnapshot {
   final Map<String, int> missionScores;
 }
 
+class MidtransCheckoutSession {
+  const MidtransCheckoutSession({
+    required this.orderId,
+    required this.redirectUrl,
+    required this.amount,
+    required this.plan,
+  });
+
+  final String orderId;
+  final String redirectUrl;
+  final int amount;
+  final Plan plan;
+}
+
+class MidtransPaymentStatus {
+  const MidtransPaymentStatus({
+    required this.paid,
+    required this.transactionStatus,
+    required this.message,
+  });
+
+  final bool paid;
+  final String transactionStatus;
+  final String message;
+}
+
 abstract interface class KoiniRemoteRepository {
   bool get isSignedIn;
 
@@ -122,6 +148,10 @@ abstract interface class KoiniRemoteRepository {
     required DateTime periodStart,
     required DateTime periodEnd,
   });
+
+  Future<MidtransCheckoutSession> createMidtransCheckout({required Plan plan});
+
+  Future<MidtransPaymentStatus> checkMidtransStatus({required String orderId});
 }
 
 /// Talks directly to Supabase Postgres (14 ERD tables + `sisa_jajan` RPC) under RLS.
@@ -771,8 +801,90 @@ final class SupabaseKoiniRepository implements KoiniRemoteRepository {
       if (result is num) return result.toInt();
       return 0;
     } catch (error) {
-      debugPrint('Koini sisa_jajan RPC: ${error.runtimeType}');
+      debugPrint('Koini sisa_jajan RPC: $error');
       return 0;
+    }
+  }
+
+  @override
+  Future<MidtransCheckoutSession> createMidtransCheckout({
+    required Plan plan,
+  }) async {
+    if (!isSignedIn) {
+      throw const FormatException(
+        'Masuk dengan akun orang tua terlebih dahulu.',
+      );
+    }
+    final planKey = switch (plan) {
+      Plan.monthly => 'bulanan',
+      Plan.yearly => 'tahunan',
+      Plan.free => throw const FormatException(
+        'Paket Gratis tidak memerlukan pembayaran.',
+      ),
+    };
+    try {
+      final response = await _client.functions.invoke(
+        'midtrans-checkout',
+        body: {'action': 'create', 'plan': planKey},
+      );
+      final data = response.data is Map
+          ? Map<String, dynamic>.from(response.data as Map)
+          : <String, dynamic>{};
+      if (response.status >= 400 || data['redirect_url'] is! String) {
+        throw FormatException(
+          (data['error'] as String?) ??
+              'Gagal memulai pembayaran Midtrans Sandbox.',
+        );
+      }
+      return MidtransCheckoutSession(
+        orderId: data['order_id'] as String,
+        redirectUrl: data['redirect_url'] as String,
+        amount:
+            (data['gross_amount'] as num?)?.toInt() ??
+            (plan == Plan.yearly ? 50000 : 5000),
+        plan: plan,
+      );
+    } on FunctionException catch (error) {
+      final details = error.details;
+      final message = details is Map && details['error'] is String
+          ? details['error'] as String
+          : 'Layanan Midtrans Sandbox belum siap. Periksa koneksi atau gunakan simulasi instan.';
+      throw FormatException(message);
+    }
+  }
+
+  @override
+  Future<MidtransPaymentStatus> checkMidtransStatus({
+    required String orderId,
+  }) async {
+    if (!isSignedIn) {
+      throw const FormatException('Sesi login tidak ditemukan.');
+    }
+    try {
+      final response = await _client.functions.invoke(
+        'midtrans-checkout',
+        body: {'action': 'status', 'order_id': orderId},
+      );
+      final data = response.data is Map
+          ? Map<String, dynamic>.from(response.data as Map)
+          : <String, dynamic>{};
+      if (response.status >= 400) {
+        throw FormatException(
+          (data['error'] as String?) ?? 'Gagal memeriksa status Midtrans.',
+        );
+      }
+      return MidtransPaymentStatus(
+        paid: data['paid'] == true,
+        transactionStatus: (data['transaction_status'] as String?) ?? 'pending',
+        message:
+            (data['message'] as String?) ?? 'Menunggu konfirmasi Midtrans.',
+      );
+    } on FunctionException catch (error) {
+      final details = error.details;
+      final message = details is Map && details['error'] is String
+          ? details['error'] as String
+          : 'Gagal memeriksa status pembayaran Midtrans.';
+      throw FormatException(message);
     }
   }
 

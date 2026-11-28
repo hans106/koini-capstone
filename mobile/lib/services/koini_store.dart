@@ -1005,6 +1005,24 @@ class KoiniStore extends ChangeNotifier {
     return null;
   }
 
+  Future<MidtransCheckoutSession> createMidtransCheckout(Plan plan) async {
+    final repo = remote;
+    if (repo == null || !repo.isSignedIn) {
+      throw const FormatException(
+        'Pembayaran Midtrans Sandbox hanya tersedia saat masuk dengan Supabase.',
+      );
+    }
+    return repo.createMidtransCheckout(plan: plan);
+  }
+
+  Future<MidtransPaymentStatus> checkMidtransStatus(String orderId) async {
+    final repo = remote;
+    if (repo == null || !repo.isSignedIn) {
+      throw const FormatException('Sesi Supabase tidak aktif.');
+    }
+    return repo.checkMidtransStatus(orderId: orderId);
+  }
+
   Future<void> _syncEntryToRemote(MoneyEntry entry) async {
     final repo = remote;
     final id = _data.anakId;
